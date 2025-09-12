@@ -1,0 +1,132 @@
+/* English translations for ZammadMobile
+*/
+
+// MARK: - General
+"save" = "Save";
+"cancel" = "Cancel";
+"error" = "Error";
+"unknown_error" = "An unknown error occurred.";
+"loading_data" = "Loading data...";
+"try_again" = "Try Again";
+
+// MARK: - Locked View
+"app_locked" = "App Locked";
+"unlock" = "Unlock";
+
+// MARK: - Ticket List
+"helpdesk_tickets" = "Helpdesk Tickets";
+"my_assigned_tickets" = "My Assigned Tickets";
+"unassigned_tickets" = "Unassigned Tickets";
+"all_tickets" = "All Tickets";
+"filter_by_status" = "Filter by Status";
+"no_tickets_in_view" = "No Tickets Here";
+"all_open_tickets" = "All Open Tickets";
+"search_placeholder" = "Search tickets";
+"next_step" = "Next step";
+
+// MARK: - Ticket Details
+"ticket_details" = "Ticket Details";
+"ticket_number" = "Number";
+"title" = "Title";
+"created_at" = "Created At";
+"owner" = "Owner";
+"status" = "Status";
+"current_status" = "Current Status";
+"priority" = "Priority";
+"messages" = "Messages";
+"error_loading_messages" = "Error: %@";
+"no_messages_found" = "No messages found.";
+"reply" = "Reply";
+"edit" = "Edit";
+
+// MARK: - Settings
+"settings" = "Settings";
+"server_configuration" = "Server Configuration";
+"zammad_url" = "Zammad URL";
+"api_configuration" = "API Configuration";
+"personal_access_token" = "Personal Access Token";
+"security" = "Security";
+"secure_with_faceid" = "Secure with Face ID / Passcode";
+"appearance" = "Appearance";
+"theme" = "Theme";
+"pro_subscription" = "Pro Subscription";
+"pro_subscriber_thanks" = "You are a Pro subscriber. Thank you!";
+"subscription_expired" = "Your subscription has expired.";
+"payment_failed" = "Payment failed. We are retrying.";
+"loading_subscriptions" = "Loading subscriptions...";
+"per_month" = "/month";
+"per_year" = "/year";
+"open_settings" = "Open Settings";
+"enable_notifications" = "Enable notifications";
+"new_tickets" = "New tickets";
+"new_assignments" = "Tickets assigned to you";
+"customer_replies" = "Customer replies";
+"fallback_notifications_title" = "Basic notifications";
+"fallback_notifications_disabled_info" = "Realtime push configuration activated";
+"realtime_notifications_title" = "Realtime push notifications";
+"realtime_notifications_explanation"= "Please configure proxy URL as Webhook in Zammad";
+"enable_realtime_notifications" = "Activate realtime notifications";
+"webhook_url_label" = "Webhook proxy URL";
+"could_not_load_subscriptions" = "Could not load Subscriptions";
+"advanced" = "Advanced";
+"advanced_notifications" = "Advanced Notification Settings";
+"how_to_configure" = "How do I set this up?";
+"done" = "Done";
+
+// MARK: - Edit/Reply Sheets
+"edit_ticket" = "Edit Ticket";
+"adjust_ticket" = "Adjust Ticket";
+"new_reply" = "New Reply";
+"reply_to_customer" = "Reply to customer";
+"send" = "Send";
+"customer_not_found" = "Customer data not found.";
+"error_saving" = "Error saving: %@";
+"error_sending" = "Error sending: %@";
+
+// MARK: - Authentication
+"unlock_reason" = "Unlock to view your tickets.";
+
+// MARK: - API Errors
+"api_error_invalid_response" = "Invalid response from the server.";
+"api_error_decoding" = "Could not process data from the server.";
+"api_error_token_not_set" = "API token not set. Please go to Settings.";
+"api_error_authentication_failed" = "Authentication failed. Please check your API token.";
+"api_error_user_not_found" = "Could not find the current user.";
+"api_error_invalid_url" = "The configured server URL is invalid.";
+"api_error_server_error" = "Server error: Status %@.";
+
+// MARK: - Background Notifications
+"new_tickets_title" = "New Tickets";
+"new_ticket_body_single" = "There is 1 new ticket.";
+"new_ticket_body_multiple" = "There are %@ new tickets.";
+"new_assignment_title" = "New Assignment";
+"new_assignment_body" = "Ticket %@ has been assigned to you.";
+
+// MARK: - Ticket Statuses
+"status_new" = "New";
+"status_open" = "Open";
+"status_pending_reminder" = "Pending reminder";
+"status_closed" = "Closed";
+"status_merged" = "Merged";
+"status_pending_close" = "Pending close";
+
+/* Setup Wizard */
+"welcome_title" = "Welcome!";
+"welcome_message" = "Let's set up the app so you can get started with your Zammad helpdesk.";
+"start_setup" = "Start Setup";
+"server_setup_title" = "Server Setup";
+"security_and_appearance" = "Security & Appearance";
+"finish_setup" = "Finish Setup";
+"remove_ads_and_support" = "Remove Ads & Support Development";
+
+/* Webhook Guide */
+"webhook_guide_title" = "Webhook Setup Guide";
+"webhook_guide_intro" = "Follow these steps to configure your Zammad installation to send real-time signals to the app when a ticket is updated.";
+"webhook_guide_step1_title" = "Step 1: Navigate to Webhooks in Zammad";
+"webhook_guide_step1_body" = "1. Log in to your Zammad instance as an administrator.\n2. Navigate to Settings (the gear icon).\n3. Find and click on \"Webhooks\" in the left-hand menu.";
+"webhook_guide_step2_title" = "Step 2: Create a New Webhook";
+"webhook_guide_step2_body" = "1. Click the \"Add New Webhook\" button.\n2. Give the webhook a clear name, for example, \"iOS App Notifications\".\n3. In the \"URL\" field, paste the unique, personal URL you just copied from the app.\n4. Ensure that \"Active\" is checked.";
+"webhook_guide_step3_title" = "Step 3: Configure Triggers";
+"webhook_guide_step3_body" = "A \"Trigger\" is an event in Zammad that should activate the webhook. For the best results, we recommend setting up triggers for the following events:\n\n- Ticket Created\n- Ticket Updated";
+"webhook_guide_step4_title" = "Step 4: Save and Test";
+"webhook_guide_step4_body" = "1. Click \"Save\" or \"Submit\".\n2. Zammad will send a \"ping\" message to the URL to test the connection. You can see if this message was received correctly in the logs of your proxy server.\n\nThat's it! Your Zammad server is now configured to send real-time updates.";
