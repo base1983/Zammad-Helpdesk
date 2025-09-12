@@ -1,0 +1,132 @@
+/* Dutch translations for ZammadMobile
+*/
+
+// MARK: - General
+"save" = "Opslaan";
+"cancel" = "Annuleren";
+"error" = "Fout";
+"unknown_error" = "Een onbekende fout is opgetreden.";
+"loading_data" = "Data laden...";
+"try_again" = "Opnieuw proberen";
+"next_step" = "Volgende";
+
+// MARK: - Locked View
+"app_locked" = "App Vergrendeld";
+"unlock" = "Ontgrendel";
+
+// MARK: - Ticket List
+"helpdesk_tickets" = "Helpdesk Tickets";
+"my_assigned_tickets" = "Mijn Toegewezen Tickets";
+"unassigned_tickets" = "Niet Toegewezen Tickets";
+"all_tickets" = "Alle Tickets";
+"filter_by_status" = "Filter op Status";
+"no_tickets_in_view" = "Geen Tickets Hier";
+"all_open_tickets" = "Alle Openstaande Tickets";
+"search_placeholder" = "Zoek tickets";
+
+// MARK: - Ticket Details
+"ticket_details" = "Ticket Details";
+"ticket_number" = "Nummer";
+"title" = "Titel";
+"created_at" = "Aangemaakt op";
+"owner" = "Behandelaar";
+"status" = "Status";
+"current_status" = "Huidige Status";
+"priority" = "Prioriteit";
+"messages" = "Berichten";
+"error_loading_messages" = "Fout: %@";
+"no_messages_found" = "Geen berichten gevonden.";
+"reply" = "Reageer";
+"edit" = "Bewerk";
+
+// MARK: - Settings
+"settings" = "Instellingen";
+"server_configuration" = "Server Configuratie";
+"zammad_url" = "Zammad URL";
+"api_configuration" = "API Configuratie";
+"personal_access_token" = "Persoonlijk Toegangstoken";
+"security" = "Beveiliging";
+"secure_with_faceid" = "Beveilig met Face ID / Pincode";
+"appearance" = "Weergave";
+"theme" = "Thema";
+"pro_subscription" = "Pro Abonnement";
+"pro_subscriber_thanks" = "Je bent een Pro-abonnee. Bedankt!";
+"subscription_expired" = "Je abonnement is verlopen.";
+"payment_failed" = "Betaling mislukt. We proberen het opnieuw.";
+"loading_subscriptions" = "Abonnementen laden...";
+"per_month" = "/maand";
+"per_year" = "/jaar";
+"open_settings" = "Open Instellingen";
+"enable_notifications" = "Notificaties inschakelen";
+"new_tickets" = "Nieuwe tickets";
+"new_assignments" = "Ticket aan jou toegewezen";
+"customer_replies" = "Klant reactie";
+"fallback_notifications_title" = "Basis notificaties";
+"fallback_notifications_disabled_info" = "Realtime push configuratie geactiveerd";
+"realtime_notifications_title" = "Realtime push notificaties";
+"realtime_notifications_explanation"= "Onderstaande proxy URL graag instellen als Webhook in Zammad";
+"enable_realtime_notifications" = "Realtime notificaties activeren";
+"webhook_url_label" = "Webhook proxy URL";
+"could_not_load_subscriptions" = "Kon abonnementen niet laden";
+"advanced" = "Advanced";
+"advanced_notifications" = "Advanced Notification Settings";
+"how_to_configure" = "How do I set this up?";
+"done" = "Done";
+
+// MARK: - Edit/Reply Sheets
+"edit_ticket" = "Bewerk Ticket";
+"adjust_ticket" = "Ticket aanpassen";
+"new_reply" = "Nieuwe Reactie";
+"reply_to_customer" = "Reactie naar klant";
+"send" = "Verstuur";
+"customer_not_found" = "Klantgegevens niet gevonden.";
+"error_saving" = "Fout bij opslaan: %@";
+"error_sending" = "Fout bij verzenden: %@";
+
+// MARK: - Authentication
+"unlock_reason" = "Ontgrendel om uw tickets te zien.";
+
+// MARK: - API Errors
+"api_error_invalid_response" = "Ongeldig antwoord van de server.";
+"api_error_decoding" = "Kon de data van de server niet verwerken.";
+"api_error_token_not_set" = "API token niet ingesteld. Ga naar Instellingen.";
+"api_error_authentication_failed" = "Authenticatie mislukt. Controleer je API-token.";
+"api_error_user_not_found" = "Kon de huidige gebruiker niet vinden.";
+"api_error_invalid_url" = "De ingestelde server URL is ongeldig.";
+"api_error_server_error" = "Serverfout: Status %@.";
+
+// MARK: - Background Notifications
+"new_tickets_title" = "Nieuwe Tickets";
+"new_ticket_body_single" = "Er is 1 nieuw ticket.";
+"new_ticket_body_multiple" = "Er zijn %@ nieuwe tickets.";
+"new_assignment_title" = "Nieuwe Toewijzing";
+"new_assignment_body" = "Ticket %@ is aan jou toegewezen.";
+
+// MARK: - Ticket Statuses
+"status_new" = "Nieuw";
+"status_open" = "Open";
+"status_pending_reminder" = "Wacht op klant reactie";
+"status_closed" = "Gesloten";
+"status_merged" = "Samengevoegd";
+"status_pending_close" = "Wacht op sluiten";
+
+/* Setup Wizard */
+"welcome_title" = "Welkom!";
+"welcome_message" = "Laten we de de app in gaan stellen voor Zammad helpdesk.";
+"start_setup" = "Start Setup";
+"server_setup_title" = "Server Setup";
+"security_and_appearance" = "Beveiliging & Weergave";
+"finish_setup" = "Setup afronden";
+"remove_ads_and_support" = "Verwijder reclame en steun onze ontwikkelaars";
+
+/* Webhook Guide */
+"webhook_guide_title" = "Webhook Setup Guide";
+"webhook_guide_intro" = "Follow these steps to configure your Zammad installation to send real-time signals to the app when a ticket is updated.";
+"webhook_guide_step1_title" = "Step 1: Navigate to Webhooks in Zammad";
+"webhook_guide_step1_body" = "1. Log in to your Zammad instance as an administrator.\n2. Navigate to Settings (the gear icon).\n3. Find and click on \"Webhooks\" in the left-hand menu.";
+"webhook_guide_step2_title" = "Step 2: Create a New Webhook";
+"webhook_guide_step2_body" = "1. Click the \"Add New Webhook\" button.\n2. Give the webhook a clear name, for example, \"iOS App Notifications\".\n3. In the \"URL\" field, paste the unique, personal URL you just copied from the app.\n4. Ensure that \"Active\" is checked.";
+"webhook_guide_step3_title" = "Step 3: Configure Triggers";
+"webhook_guide_step3_body" = "A \"Trigger\" is an event in Zammad that should activate the webhook. For the best results, we recommend setting up triggers for the following events:\n\n- Ticket Created\n- Ticket Updated";
+"webhook_guide_step4_title" = "Step 4: Save and Test";
+"webhook_guide_step4_body" = "1. Click \"Save\" or \"Submit\".\n2. Zammad will send a \"ping\" message to the URL to test the connection. You can see if this message was received correctly in the logs of your proxy server.\n\nThat's it! Your Zammad server is now configured to send real-time updates.";
