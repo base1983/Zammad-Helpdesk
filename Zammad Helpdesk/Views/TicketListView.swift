@@ -10,6 +10,8 @@ struct TicketListView: View {
     @State private var isSearchActive = false
     @FocusState private var isSearchFieldFocused: Bool
     
+    @StateObject private var deepLinkManager = DeepLinkManager.shared
+    
     private let adUnitID = "ca-app-pub-3940256099942544/2934735716"
 
     var body: some View {
@@ -32,7 +34,7 @@ struct TicketListView: View {
                 }
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationDestination(for: Ticket.self) { ticket in
-                    TicketDetailView(ticket: ticket, viewModel: viewModel)
+                    TicketDetailView(ticketID: ticket.id, viewModel: viewModel)
                 }
                 .toolbar { navigationToolbar }
                 .background(appBackground)
@@ -44,7 +46,15 @@ struct TicketListView: View {
                 if viewModel.currentUser == nil {
                     Task { await viewModel.refreshAllData() }
                 }
-                NotificationManager.shared.requestAuthorization()
+            }
+            .task(id: deepLinkManager.pendingTicketID) {
+                // This task now handles the deep link when it changes.
+                guard let ticketID = deepLinkManager.pendingTicketID else { return }
+                // A small delay ensures the UI is ready before navigating.
+                try? await Task.sleep(for: .milliseconds(250))
+                handleDeepLink(for: ticketID)
+                // Reset the pending ID so it doesn't trigger again.
+                deepLinkManager.pendingTicketID = nil
             }
             .onChange(of: searchText) { _, newValue in
                 if newValue.isEmpty {
@@ -53,10 +63,6 @@ struct TicketListView: View {
             }
             .sheet(isPresented: $isShowingSettings) {
                 SettingsView { Task { await viewModel.refreshAllData() } }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .handleDeepLink)) { notification in
-                guard let ticketID = notification.userInfo?["ticketID"] as? Int else { return }
-                handleDeepLink(for: ticketID)
             }
             
             if !areAdsRemoved {
@@ -70,6 +76,7 @@ struct TicketListView: View {
     private func handleDeepLink(for ticketID: Int) {
         Task { [viewModel] in
             if let ticket = await viewModel.handleDeepLink(ticketID: ticketID) {
+                // Ensure the navigation stack is clear before adding the new path.
                 self.navigationPath.removeLast(self.navigationPath.count)
                 self.navigationPath.append(ticket)
             }

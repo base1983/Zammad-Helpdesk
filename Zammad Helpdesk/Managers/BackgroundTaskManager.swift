@@ -88,8 +88,9 @@ class BackgroundTaskManager {
     private func checkForNewTickets(oldData: [[String: Any]], newData: [Ticket]) -> [(String, String, [AnyHashable: Any]?)] {
         let oldTicketIDs = Set(oldData.compactMap { $0["id"] as? Int })
         return newData.filter { !oldTicketIDs.contains($0.id) }.map { ticket in
-            let body = String(format: "new_ticket_body".localized(), ticket.number)
-            return (title: "new_ticket_singular".localized(), body: body, userInfo: ["ticketID": ticket.id])
+            let title = String(format: "new_ticket_title_generic".localized(), ticket.number)
+            let body = ticket.title
+            return (title: title, body: body, userInfo: ["ticketID": ticket.id])
         }
     }
     
@@ -98,8 +99,9 @@ class BackgroundTaskManager {
             if let id = item["id"] as? Int, let owner = item["owner_id"] as? Int { dict[id] = owner }
         }
         return newData.filter { $0.owner_id == userId && oldOwnerMap[$0.id] != userId }.map { newTicket in
-            let body = String(format: "new_assignment_body".localized(), newTicket.number)
-            return (title: "new_assignment_title".localized(), body: body, userInfo: ["ticketID": newTicket.id])
+            let title = "new_assignment_title".localized()
+            let body = newTicket.title
+            return (title: title, body: body, userInfo: ["ticketID": newTicket.id])
         }
     }
     
@@ -111,8 +113,9 @@ class BackgroundTaskManager {
             guard ticket.owner_id == userId, let oldTimestamp = oldTimestampMap[ticket.id] else { return false }
             return ticket.updated_at > oldTimestamp
         }.map { newTicket in
-            let body = String(format: "new_reply_body".localized(), newTicket.number)
-            return (title: "new_reply_title".localized(), body: body, userInfo: ["ticketID": newTicket.id])
+            let title = String(format: "new_reply_title_with_number".localized(), newTicket.number)
+            let body = newTicket.title
+            return (title: title, body: body, userInfo: ["ticketID": newTicket.id])
         }
     }
 
@@ -128,4 +131,3 @@ class BackgroundTaskManager {
         }
     }
 }
-

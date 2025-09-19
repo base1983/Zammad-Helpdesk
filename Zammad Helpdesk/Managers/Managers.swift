@@ -4,6 +4,14 @@ import Combine
 import UserNotifications
 import LocalAuthentication
 
+/// A shared manager to handle the state of a pending deep link.
+/// This avoids race conditions when the app is launched from a notification.
+class DeepLinkManager: ObservableObject {
+    static let shared = DeepLinkManager()
+    
+    @Published var pendingTicketID: Int?
+}
+
 enum ColorSchemeOption: String, CaseIterable, Identifiable {
     case system = "Systeem", light = "Licht", dark = "Donker"
     var id: Self { self }
@@ -119,4 +127,3 @@ class AuthenticationManager: ObservableObject {
         if SettingsManager.shared.isLockEnabled() { isUnlocked = false }
     }
 }
-

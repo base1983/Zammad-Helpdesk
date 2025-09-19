@@ -42,7 +42,7 @@ struct SetupWizardView: View {
                 .padding([.horizontal, .bottom])
             }
         }
-        .tint(.glassAccent)
+        .tint(.accentColor)
     }
     
     private func saveSettingsAndFinish() {
@@ -73,6 +73,11 @@ private struct ServerStepView: View {
             }
             StyledSection(title: "api_configuration".localized()) {
                 TextField("personal_access_token".localized(), text: $apiToken, axis: .vertical)
+                Divider().padding(.vertical, 5)
+                Text("api_token_guide".localized())
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             Spacer()
             Button("next_step".localized()) {
@@ -171,3 +176,4 @@ private struct ProStepView: View {
         }
     }
 }
+

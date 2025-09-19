@@ -5,61 +5,127 @@ import StoreKit
 
 // MARK: - Hoofd Views
 struct TicketDetailView: View {
-    let ticket: Ticket
+    let ticketID: Int
     @ObservedObject var viewModel: TicketViewModel
-    @Environment(\.dismiss) var dismiss // Added to control the view's presentation
-
+    @Environment(\.dismiss) var dismiss
+    
+    private var ticket: Ticket? {
+        viewModel.currentTickets.first { $0.id == ticketID }
+    }
+    
     @State private var articles: [TicketArticle] = []
     @State private var isLoadingArticles = false
     @State private var articleError: String?
     @State private var isShowingEditView = false
     @State private var isShowingReplyView = false
-
+    
     private let apiService = ZammadAPIService.shared
 
     var body: some View {
-        // De view is nu opgesplitst om de compiler te helpen.
-        contentView
-            .toolbar { toolbarContent }
-            .navigationBarBackButtonHidden(true) // Hides the default text-based back button
-            .task { await loadArticles() }
-            .sheet(isPresented: $isShowingEditView) {
+        Group {
+            if let ticket = ticket {
+                contentView(ticket: ticket)
+            } else {
+                VStack {
+                    Spacer()
+                    Image(systemName: "questionmark.circle")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary)
+                    Text("ticket_not_found_title".localized())
+                        .font(.headline)
+                        .padding(.top)
+                    Text("ticket_not_found_body".localized())
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                    Spacer()
+                }
+                .padding()
+            }
+        }
+        .toolbar {
+            if let ticket = ticket {
+                toolbarContent(for: ticket)
+            }
+        }
+        .navigationBarBackButtonHidden(true)
+        .task {
+            // This runs only once when the view first appears to perform the initial article load.
+            await fetchArticles()
+        }
+        .refreshable {
+            // Pull-to-refresh will now only refresh the main data source.
+            // The `.onChange` modifier below will handle reloading the articles automatically.
+            await viewModel.refreshAllData()
+        }
+        .onChange(of: ticket) {
+            // This detects when the ticket data has changed (e.g., after a refresh)
+            // and automatically triggers a reload of the articles.
+            Task {
+                await fetchArticles()
+            }
+        }
+        .sheet(isPresented: $isShowingEditView) {
+            if let ticket = ticket {
+                // After editing, we trigger a full refresh, which will then cause the `.onChange` to fire.
                 EditTicketView(ticket: ticket, viewModel: viewModel) { Task { await viewModel.refreshAllData() } }
             }
-            .sheet(isPresented: $isShowingReplyView) {
+        }
+        .sheet(isPresented: $isShowingReplyView) {
+            if let ticket = ticket {
+                 // After replying, we also trigger a full refresh.
                 ReplyView(
                     ticket: ticket,
                     customer: viewModel.allUsers.first { $0.id == ticket.customer_id },
-                    onReply: { Task { await loadArticles() } }
+                    onReply: { Task { await viewModel.refreshAllData() } }
                 )
             }
+        }
     }
+    
+    /// This function is now solely responsible for fetching and displaying the articles for the current ticket.
+    private func fetchArticles() async {
+        guard let currentTicket = ticket else {
+            articles = []
+            return
+        }
 
-    private func loadArticles() async {
-        isLoadingArticles = true; articleError = nil
+        isLoadingArticles = true
+        articleError = nil
         do {
-            articles = try await apiService.fetchArticles(for: ticket.id)
+            var fetchedArticles = try await apiService.fetchArticles(for: currentTicket.id)
+            try Task.checkCancellation() // A good practice to check for cancellation before updating the state.
+            
+            fetchedArticles.sort { $0.created_at > $1.created_at }
+            articles = fetchedArticles
         } catch {
-            articleError = (error as? LocalizedError)?.errorDescription ?? "unknown_error".localized()
+            // This robust error handling correctly ignores harmless cancellation errors.
+            if let urlError = error as? URLError, urlError.code == .cancelled {
+                 print("Article fetch was canceled (URLError). This is expected and is being ignored.")
+            } else if error is CancellationError {
+                 print("Article fetch was canceled (CancellationError). This is expected and is being ignored.")
+            } else {
+                print("Error fetching articles: \(error)")
+                articleError = error.localizedDescription
+            }
         }
         isLoadingArticles = false
     }
 
-    // MARK: - Subviews (voor betere leesbaarheid en compiler-prestaties)
-    private var contentView: some View {
+    // MARK: - Subviews
+    private func contentView(ticket: Ticket) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                detailsSection
-                statusSection
+                detailsSection(ticket: ticket)
+                statusSection(ticket: ticket)
                 messagesSection
             }
             .padding()
         }
         .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-        .refreshable { await loadArticles() }
     }
 
-    private var detailsSection: some View {
+    private func detailsSection(ticket: Ticket) -> some View {
         StyledSection(title: "ticket_details".localized()) {
             DetailRow(label: "ticket_number".localized(), value: ticket.number)
             Divider()
@@ -70,19 +136,19 @@ struct TicketDetailView: View {
             DetailRow(label: "owner".localized(), value: viewModel.userName(for: ticket.owner_id))
         }
     }
-
-    private var statusSection: some View {
+    
+    private func statusSection(ticket: Ticket) -> some View {
         StyledSection(title: "status".localized()) {
             DetailRow(label: "current_status".localized(), value: viewModel.localizedStatusName(for: viewModel.stateName(for: ticket.state_id)))
             Divider()
             DetailRow(label: "priority".localized(), value: viewModel.priorityName(for: ticket.priority_id))
         }
     }
-
+    
     private var messagesSection: some View {
         VStack(alignment: .leading) {
             Text("messages".localized()).font(.headline).foregroundColor(.secondary).padding(.horizontal)
-
+            
             if isLoadingArticles { ProgressView().frame(maxWidth: .infinity) }
             else if let articleError { Text(String(format: "error_loading_messages".localized(), articleError)).foregroundColor(.red) }
             else if articles.isEmpty { Text("no_messages_found".localized()).foregroundColor(.secondary).padding() }
@@ -95,43 +161,35 @@ struct TicketDetailView: View {
             }
         }
     }
-
+    
     @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        // This is the new custom back button icon
+    private func toolbarContent(for ticket: Ticket) -> some ToolbarContent {
         ToolbarItem(placement: .navigationBarLeading) {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left.circle")
-                    .imageScale(.large)
                     .foregroundColor(.primary)
+                    .imageScale(.large)
             }
         }
-        
         ToolbarItem(placement: .principal) {
             Text("Ticket #\(ticket.number)")
                 .fontWeight(.bold)
         }
-        
         ToolbarItem(placement: .navigationBarTrailing) {
             Menu {
                 Button(action: { isShowingReplyView = true }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "arrowshape.turn.up.left.circle")
-                        Text("reply".localized())
-                    }
+                    Label("reply".localized(), systemImage: "arrowshape.turn.up.left")
                 }
-                .buttonStyle(.plain) // Ensures the icon color is not the accent color
+                .buttonStyle(.plain)
 
                 Button(action: { isShowingEditView = true }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "pencil.circle")
-                        Text("edit".localized())
-                    }
+                    Label("edit".localized(), systemImage: "pencil")
                 }
-                .buttonStyle(.plain) // Ensures the icon color is not the accent color
+                .buttonStyle(.plain)
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .foregroundColor(.primary)
+                    .imageScale(.large)
             }
         }
     }
@@ -189,8 +247,8 @@ struct TicketRowView: View {
 
 struct ArticleView: View {
     let article: TicketArticle
-    @State private var attributedBody: AttributedString?
     @Environment(\.colorScheme) var colorScheme
+    @State private var attributedBody: AttributedString?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -208,20 +266,27 @@ struct ArticleView: View {
         .background(Color(UIColor.secondarySystemGroupedBackground))
         .cornerRadius(15)
         .listRowInsets(EdgeInsets())
-        .task(id: colorScheme) { // Re-run when color scheme changes
-            // Determine text color based on the current color scheme
-            let textColor = (colorScheme == .dark) ? "white" : "black"
-            // Prepend CSS to the HTML body to set the default text color
-            let styledHtml = """
-            <style>
-                body {
-                    color: \(textColor);
-                }
-            </style>
+        .task {
+            // Inject CSS to handle dark/light mode text color for HTML content
+            let textColor = colorScheme == .dark ? "white" : "black"
+            let htmlString = """
+            <style>body { color: \(textColor); }</style>
             \(article.body)
             """
-
-            if let nsAttributedString = HTMLParser.attributedString(from: styledHtml) {
+            
+            if let nsAttributedString = HTMLParser.attributedString(from: htmlString) {
+                self.attributedBody = AttributedString(nsAttributedString)
+            }
+        }
+        .onChange(of: colorScheme) {
+            // Re-process the HTML when the color scheme changes
+            let textColor = colorScheme == .dark ? "white" : "black"
+            let htmlString = """
+            <style>body { color: \(textColor); }</style>
+            \(article.body)
+            """
+            
+            if let nsAttributedString = HTMLParser.attributedString(from: htmlString) {
                 self.attributedBody = AttributedString(nsAttributedString)
             }
         }
