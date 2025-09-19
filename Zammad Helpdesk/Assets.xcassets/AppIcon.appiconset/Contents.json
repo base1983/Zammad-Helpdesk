@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "zammad_logo.png",
+      "filename" : "zammad_logoB 1.jpg",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -13,6 +13,7 @@
           "value" : "dark"
         }
       ],
+      "filename" : "zammad_logoB.jpg",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -24,6 +25,7 @@
           "value" : "tinted"
         }
       ],
+      "filename" : "zammad_logoW.jpg",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
