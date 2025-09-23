@@ -25,9 +25,9 @@
     "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
     "_lastSynchronizedDate" : 780319799.17144799,
-    "_locale" : "en_US",
+    "_locale" : "nl",
     "_renewalBillingIssuesEnabled" : false,
-    "_storefront" : "USA",
+    "_storefront" : "NLD",
     "_storeKitErrors" : [
 
     ],
