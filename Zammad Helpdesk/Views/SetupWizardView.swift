@@ -15,6 +15,9 @@ struct SetupWizardView: View {
     @State private var assignmentNotificationsEnabled = true
     @State private var replyNotificationsEnabled = true
 
+    // We add this state to control the real-time notification toggle
+    @State private var realtimeNotificationsEnabled = false
+
     var body: some View {
         VStack {
             TabView(selection: $selection) {
@@ -25,6 +28,7 @@ struct SetupWizardView: View {
                     newTicketNotificationsEnabled: $newTicketNotificationsEnabled,
                     assignmentNotificationsEnabled: $assignmentNotificationsEnabled,
                     replyNotificationsEnabled: $replyNotificationsEnabled,
+                    realtimeNotificationsEnabled: $realtimeNotificationsEnabled, // Pass binding
                     selection: $selection
                 ).tag(2)
                 ProStepView(selection: $selection).tag(3)
@@ -46,6 +50,7 @@ struct SetupWizardView: View {
     }
     
     private func saveSettingsAndFinish() {
+        // Save all the settings first so the proxy service can access them
         SettingsManager.shared.save(serverURL: serverURL)
         SettingsManager.shared.save(token: apiToken)
         SettingsManager.shared.save(isLockEnabled: isLockEnabled)
@@ -54,6 +59,16 @@ struct SetupWizardView: View {
         SettingsManager.shared.save(newTicketNotificationsEnabled: newTicketNotificationsEnabled)
         SettingsManager.shared.save(assignmentNotificationsEnabled: assignmentNotificationsEnabled)
         SettingsManager.shared.save(replyNotificationsEnabled: replyNotificationsEnabled)
+        SettingsManager.shared.save(realtimeNotificationsEnabled: realtimeNotificationsEnabled)
+        
+        // ** THE FIX **
+        // If real-time notifications were enabled, we must now register with the proxy server.
+        if realtimeNotificationsEnabled {
+            Task {
+                await NotificationProxyService.shared.updateRegistration(isSubscribing: true)
+            }
+        }
+        
         isSetupComplete = true
     }
 }
@@ -119,11 +134,19 @@ private struct NotificationStepView: View {
     @Binding var newTicketNotificationsEnabled: Bool
     @Binding var assignmentNotificationsEnabled: Bool
     @Binding var replyNotificationsEnabled: Bool
+    @Binding var realtimeNotificationsEnabled: Bool // Add binding
     @Binding var selection: Int
     var body: some View {
         VStack {
             Text("notifications".localized()).font(.largeTitle).fontWeight(.bold).padding(.bottom)
+            
+            StyledSection(title: "realtime_notifications_title".localized()) {
+                Text("realtime_notifications_explanation".localized()).font(.caption).foregroundColor(.secondary)
+                Toggle("enable_realtime_notifications".localized(), isOn: $realtimeNotificationsEnabled)
+            }
+            
             StyledSection(title: "fallback_notifications_title".localized()) {
+                Text("fallback_notifications_info".localized()).font(.caption).foregroundColor(.secondary)
                 Toggle("enable_notifications".localized(), isOn: $notificationsEnabled)
                 if notificationsEnabled {
                     Divider()
@@ -132,6 +155,8 @@ private struct NotificationStepView: View {
                     Toggle("customer_replies".localized(), isOn: $replyNotificationsEnabled)
                 }
             }
+            .disabled(realtimeNotificationsEnabled) // Disable fallback if real-time is on
+            
             Spacer()
             Button("next_step".localized()) {
                 withAnimation { selection = 3 }
