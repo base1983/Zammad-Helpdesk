@@ -3,55 +3,92 @@ import Foundation
 class NotificationProxyService {
     static let shared = NotificationProxyService()
     
-    private let proxyBaseURL = URL(string: "https://zammadproxy.world-ict.nl/api/")!
+    // Zorg dat deze URL exact klopt. Geen slash aan het einde.
+    private let baseURL = URL(string: "https://zammadproxy.world-ict.nl/api")!
 
-    private init() {}
+    private func sendRequest(to endpoint: String, method: String, payload: [String: Any]) async throws {
+        let url = baseURL.appendingPathComponent(endpoint)
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Debug: Print wat we gaan versturen
+        print("DEBUG: [Proxy] URL: \(url.absoluteString)")
+        // print("DEBUG: [Proxy] Payload: \(payload)") // Zet aan als je de volledige inhoud wilt zien
 
-    func getWebhookURL() -> String {
-        let userID = SettingsManager.shared.getProxyUserID()
-        return proxyBaseURL.appendingPathComponent("webhook/\(userID)").absoluteString
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        // Check de status code
+        if let httpResponse = response as? HTTPURLResponse {
+            print("DEBUG: [Proxy] HTTP Status: \(httpResponse.statusCode)")
+            
+            // Als het GEEN 200-299 is, print dan de foutmelding van de server
+            if !(200...299).contains(httpResponse.statusCode) {
+                if let serverError = String(data: data, encoding: .utf8) {
+                    print("DEBUG: [Proxy] SERVER FOUTMELDING: \(serverError)")
+                }
+                throw URLError(.badServerResponse)
+            }
+        }
+        
+        print("DEBUG: [Proxy] Verzoek geslaagd.")
     }
-
+    
     func updateRegistration(isSubscribing: Bool) async {
-        guard let deviceToken = SettingsManager.shared.loadDeviceToken() else {
-            print("Device token not available, cannot update registration.")
+        print("DEBUG: [Proxy] Start registratie update (Inschrijven: \(isSubscribing))...")
+
+        // 1. Haal waarden op en check of ze niet leeg zijn
+        guard let deviceToken = SettingsManager.shared.loadDeviceToken(), !deviceToken.isEmpty else {
+            print("DEBUG: [Proxy] FOUT - Geen Device Token gevonden in Settings.")
             return
         }
         
+        guard let zammadToken = SettingsManager.shared.loadToken(), !zammadToken.isEmpty else {
+            print("DEBUG: [Proxy] FOUT - Geen Zammad API Token gevonden.")
+            return
+        }
+        
+        let zammadURL = SettingsManager.shared.loadServerURL()
+        if zammadURL.isEmpty {
+            print("DEBUG: [Proxy] FOUT - Geen Zammad Server URL gevonden.")
+            return
+        }
+
         let endpoint = isSubscribing ? "register" : "unregister"
-        let url = proxyBaseURL.appendingPathComponent(endpoint)
         
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let payload = RegistrationPayload(
-            deviceToken: deviceToken,
-            proxyUserID: SettingsManager.shared.getProxyUserID(),
-            zammadURL: SettingsManager.shared.loadServerURL(),
-            zammadToken: SettingsManager.shared.loadToken() ?? ""
-        )
-        
-        do {
-            request.httpBody = try JSONEncoder().encode(payload)
-            let (data, response) = try await URLSession.shared.data(for: request)
-            
-            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                print("Successfully updated registration (subscribed: \(isSubscribing)) with proxy server.")
+        // 2. Proxy User ID Logica
+        let userID: String
+        if let existingUserID = SettingsManager.shared.getProxyUserID(), !existingUserID.isEmpty {
+            userID = existingUserID
+        } else {
+            if isSubscribing {
+                // Alleen bij inschrijven genereren we een nieuwe als hij mist
+                let newUserID = UUID().uuidString
+                SettingsManager.shared.save(proxyUserID: newUserID)
+                userID = newUserID
+                print("DEBUG: [Proxy] Nieuw Proxy User ID gegenereerd: \(userID)")
             } else {
-                let responseBody = String(data: data, encoding: .utf8) ?? "No response body"
-                print("Failed to update registration. Status: \((response as? HTTPURLResponse)?.statusCode ?? 0), Body: \(responseBody)")
+                print("DEBUG: [Proxy] FOUT - Kan niet uitschrijven zonder Proxy User ID.")
+                return
             }
+        }
+        
+        // 3. Stel payload samen
+        let payload: [String: Any] = [
+            "deviceToken": deviceToken,
+            "proxyUserID": userID,
+            "zammadURL": zammadURL,
+            "zammadToken": zammadToken
+        ]
+        
+        // 4. Verstuur
+        do {
+            try await sendRequest(to: endpoint, method: "POST", payload: payload)
+            print("DEBUG: [Proxy] updateRegistration succesvol afgerond.")
         } catch {
-            print("Error updating registration with proxy server: \(error)")
+            print("DEBUG: [Proxy] CRITISCHE FOUT: \(error.localizedDescription)")
         }
     }
-    
-    private struct RegistrationPayload: Codable {
-        let deviceToken: String
-        let proxyUserID: String
-        let zammadURL: String
-        let zammadToken: String
-    }
 }
-

@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 @MainActor
 class TicketViewModel: ObservableObject {
@@ -40,7 +41,7 @@ class TicketViewModel: ObservableObject {
         return allUsers.filter { $0.role_ids?.contains(agentRoleID) ?? false }
     }
     
-    // Publieke functies
+    // Public Functions
     func applyFilter(_ newFilter: FilterType) async {
         await loadData(filter: newFilter, isFullRefresh: false)
     }
@@ -114,12 +115,9 @@ class TicketViewModel: ObservableObject {
         (ticketStates, ticketPriorities, currentUser, allUsers, roles) = loaded
     }
 
-    // DE OPLOSSING: De filterlogica is herschreven om een correcte, dynamische zoekopdracht te bouwen.
     private func fetchTickets(for filter: FilterType) async throws -> [Ticket] {
-        // Bouw een dynamische query voor alle "open" statussen.
         let openStateIDs = ticketStates.filter { !["closed", "gesloten"].contains($0.name.lowercased()) }.map { String($0.id) }
         
-        // Als er geen open statussen zijn, kunnen we geen tickets vinden.
         guard !openStateIDs.isEmpty else { return [] }
         
         let openStatesQuery = "state_id:(\(openStateIDs.joined(separator: " OR ")))"
@@ -140,17 +138,72 @@ class TicketViewModel: ObservableObject {
         }
     }
     
-    func handleDeepLink(ticketID: Int) async -> Ticket? {
-        if currentUser == nil { await refreshAllData() }
-        do {
-            return try await apiService.fetchTicket(id: ticketID)
-        } catch {
-            print("Failed to fetch ticket for deep link: \(error)")
-            errorMessage = "could_not_load_ticket".localized()
-            return nil
+    // Vervang je huidige handleDeepLink functie met deze slimme versie:
+        func handleDeepLink(ticketID: Int) async -> Ticket? {
+            print("DEBUG: DeepLink start voor ID/Nummer: \(ticketID)")
+            
+            // STAP 1: Check lokale cache (op Database ID)
+            if let existingTicket = currentTickets.first(where: { $0.id == ticketID }) {
+                print("DEBUG: Gevonden in cache op ID \(ticketID)")
+                return existingTicket
+            }
+            
+            // Zorg dat we rechten hebben/ingelogd zijn
+            if currentUser == nil { await refreshAllData() }
+            
+            // STAP 2: Probeer te fetchen als Database ID (bijv. 486)
+            do {
+                let ticket = try await apiService.fetchTicket(id: ticketID)
+                print("DEBUG: Direct opgehaald via API op ID \(ticketID)")
+                return ticket
+            } catch {
+                print("DEBUG: Fetch op ID \(ticketID) mislukt. Fout: \(error).")
+                print("DEBUG: We proberen nu te zoeken op Ticket NUMMER...")
+                
+                // STAP 3: FALLBACK - Het was waarschijnlijk een Ticket Nummer (bijv. 14478)
+                // We zoeken via de search endpoint naar "number:14478"
+                do {
+                    // Let op: Zorg dat 'searchTickets' bestaat in je APIService
+                    // De query zoekt specifiek naar het ticketnummer
+                    let foundTickets = try await apiService.searchTickets(query: "number:\(ticketID)")
+                    
+                    if let firstMatch = foundTickets.first {
+                        print("DEBUG: Gevonden via zoekopdracht op Nummer \(ticketID) (Echte ID: \(firstMatch.id))")
+                        return firstMatch
+                    } else {
+                        print("DEBUG: Ook via zoeken niets gevonden.")
+                    }
+                } catch {
+                    print("DEBUG: Zoekopdracht mislukt: \(error)")
+                }
+                
+                // STAP 4: Als alles faalt, toon error
+                await MainActor.run {
+                    // We tonen nu het nummer in de foutmelding, handig voor debuggen!
+                    self.errorMessage = "Kon ticket #\(ticketID) niet vinden (niet als ID en niet als nummer)."
+                }
+                return nil
+            }
         }
+    
+    // MARK: - Update and Reply Logic
+    func updateTicket(_ ticket: Ticket) async throws {
+        let payload = TicketUpdatePayload(owner_id: ticket.owner_id, state_id: ticket.state_id, priority_id: ticket.priority_id)
+        _ = try await apiService.updateTicket(id: ticket.id, payload: payload)
+        await refreshAllData()
     }
     
+    func sendReply(for ticket: Ticket, with body: String, subject: String, recipient: String, articleToReplyTo: TicketArticle?) async throws {
+        let payload = ArticleCreationPayload(ticket_id: ticket.id, body: body, internal_note: false, to: recipient, subject: subject)
+        _ = try await apiService.createArticle(payload: payload)
+    }
+    
+    func addInternalNote(for ticket: Ticket, with body: String) async throws {
+        let payload = ArticleCreationPayload(ticket_id: ticket.id, body: body, internal_note: true, to: "", subject: ticket.title)
+        _ = try await apiService.createArticle(payload: payload)
+    }
+
+    // MARK: - Helper & Formatting Functions
     func stateName(for id: Int) -> String { ticketStates.first { $0.id == id }?.name ?? "unknown".localized() }
     func priorityName(for id: Int) -> String { ticketPriorities.first { $0.id == id }?.name ?? "unknown".localized() }
     func userName(for id: Int) -> String { allUsers.first { $0.id == id }?.fullname ?? "unassigned".localized() }
@@ -163,6 +216,27 @@ class TicketViewModel: ObservableObject {
         case "merged": "status_merged".localized()
         case "pending close": "status_pending_close".localized()
         default: statusName.prefix(1).capitalized + statusName.dropFirst()
+        }
+    }
+
+    func colorForStatus(named name: String) -> Color {
+        switch name.lowercased() {
+        case "new": .green
+        case "open": .yellow
+        case "in behandeling": .yellow
+        case "pending reminder", "pending close": .orange
+        case "merged": .pink
+        case "closed": .gray
+        default: .secondary
+        }
+    }
+    
+    func colorForPriority(named name: String) -> Color {
+        switch name.lowercased() {
+        case "1 low": .green
+        case "2 normal": .blue
+        case "3 high": .red
+        default: .secondary
         }
     }
 }

@@ -15,18 +15,22 @@ class StoreManager: ObservableObject {
 
     private let monthlyProductID = "com.baseonline.zammadmobile.premium.month"
     private let yearlyProductID = "com.baseonline.zammadmobile.premium.yearly"
-    private lazy var transactionListener: TransactionUpdateListener? = listenForTransactionUpdates()
+    private var transactionListener: TransactionUpdateListener?
 
     init() {
-        _ = self.transactionListener
+        transactionListener = listenForTransactionUpdates()
         Task {
-            self.isLoadingProducts = true
+            isLoadingProducts = true
             await fetchProducts()
             await checkSubscriptionStatus()
-            self.isLoadingProducts = false
+            isLoadingProducts = false
         }
     }
     
+    deinit {
+        transactionListener?.cancel()
+    }
+
     func fetchProducts() async {
         do {
             let products = try await Product.products(for: [monthlyProductID, yearlyProductID])
@@ -50,11 +54,27 @@ class StoreManager: ObservableObject {
         isTransactionInProgress = false
     }
     
+    func restorePurchases() async {
+        do {
+            try await AppStore.sync()
+        } catch {
+            print("Failed to restore purchases: \(error)")
+        }
+    }
+
     func checkSubscriptionStatus() async {
         guard let product = monthlyProduct ?? yearlyProduct,
-              let status = try? await product.subscription?.status.first else { return }
-        self.subscriptionGroupStatus = status.state
-        updateAdRemovalStatus(for: status.state)
+              let statuses = try? await product.subscription?.status else { return }
+        
+        var highestStatus: SubscriptionStatus?
+        for status in statuses {
+             highestStatus = status.state
+        }
+        
+        if let status = highestStatus {
+            subscriptionGroupStatus = status
+            updateAdRemovalStatus(for: status)
+        }
     }
 
     private func listenForTransactionUpdates() -> TransactionUpdateListener {
@@ -83,4 +103,3 @@ class StoreManager: ObservableObject {
         SettingsManager.shared.save(areAdsRemoved: areAdsRemoved)
     }
 }
-

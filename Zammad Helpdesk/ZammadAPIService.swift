@@ -6,13 +6,13 @@ enum APIError: Error, LocalizedError {
     
     var errorDescription: String? {
         switch self {
-        case .invalidResponse: "Ongeldig antwoord van de server."
-        case .decodingError: "Kon de data van de server niet verwerken."
-        case .tokenNotSet: "API token niet ingesteld. Ga naar Instellingen."
-        case .authenticationFailed: "Authenticatie mislukt. Controleer je API-token."
-        case .userNotFound: "Kon de huidige gebruiker niet vinden."
-        case .invalidURL: "De ingestelde server URL is ongeldig."
-        case .serverError(let code): "Serverfout: Status \(code)."
+        case .invalidResponse: "Invalid response from the server."
+        case .decodingError: "Could not process data from the server."
+        case .tokenNotSet: "API token not set. Please go to Settings."
+        case .authenticationFailed: "Authentication failed. Please check your API token."
+        case .userNotFound: "Could not find the current user."
+        case .invalidURL: "The configured server URL is invalid."
+        case .serverError(let code): "Server error: Status \(code)."
         }
     }
 }
@@ -21,23 +21,26 @@ class ZammadAPIService {
     static let shared = ZammadAPIService()
     private init() {}
 
-    private func getBaseURL() throws -> URL {
-        var urlString = SettingsManager.shared.loadServerURL()
-        if !urlString.lowercased().hasPrefix("http") { urlString = "https://" + urlString }
-        if urlString.hasSuffix("/") { urlString.removeLast() }
-        if !urlString.hasSuffix("/api/v1") { urlString += "/api/v1" }
-        if !urlString.hasSuffix("/") { urlString += "/" }
-        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+    private func getBaseURL(from urlString: String? = nil) throws -> URL {
+        var urlStr = urlString ?? SettingsManager.shared.loadServerURL()
+        if !urlStr.lowercased().hasPrefix("http") { urlStr = "https://" + urlStr }
+        if urlStr.hasSuffix("/") { urlStr.removeLast() }
+        if !urlStr.hasSuffix("/api/v1") { urlStr += "/api/v1" }
+        if !urlStr.hasSuffix("/") { urlStr += "/" }
+        guard let url = URL(string: urlStr) else { throw APIError.invalidURL }
         return url
     }
     
-    private func createRequest(for endpoint: String, method: String = "GET") throws -> URLRequest {
-        let baseURL = try getBaseURL()
-        guard let url = URL(string: endpoint, relativeTo: baseURL) else { throw APIError.invalidURL }
-        guard let apiToken = SettingsManager.shared.loadToken(), !apiToken.isEmpty else { throw APIError.tokenNotSet }
-        var request = URLRequest(url: url, timeoutInterval: 120.0)
+    private func createRequest(for endpoint: String, method: String = "GET", url: String? = nil, token: String? = nil) throws -> URLRequest {
+        let baseURL = try getBaseURL(from: url)
+        guard let fullUrl = URL(string: endpoint, relativeTo: baseURL) else { throw APIError.invalidURL }
+        
+        let apiToken = token ?? SettingsManager.shared.loadToken()
+        guard let finalToken = apiToken, !finalToken.isEmpty else { throw APIError.tokenNotSet }
+        
+        var request = URLRequest(url: fullUrl, timeoutInterval: 120.0)
         request.httpMethod = method
-        request.setValue("Token token=\(apiToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("Token token=\(finalToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         return request
     }
@@ -50,11 +53,29 @@ class ZammadAPIService {
             if let errorBody = String(data: data, encoding: .utf8) { print("Server Error (\(httpResponse.statusCode)): \(errorBody)") }
             throw APIError.serverError(statusCode: httpResponse.statusCode)
         }
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
         do {
-            return try JSONDecoder().decode(T.self, from: data)
+            return try decoder.decode(T.self, from: data)
         } catch {
             print("JSON Decoding Error for \(T.self): \(error)")
+            if let decodingError = error as? DecodingError {
+                print("Decoding Error Details: \(decodingError)")
+            }
             throw APIError.decodingError
+        }
+    }
+    
+    func testConnection(url: String, token: String) async -> Bool {
+        do {
+            let request = try createRequest(for: "users/me", url: url, token: token)
+            let _: User = try await fetchData(for: request)
+            return true
+        } catch {
+            print("Connection test failed: \(error)")
+            return false
         }
     }
     
@@ -62,8 +83,7 @@ class ZammadAPIService {
         let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let endpoint = "tickets/search?query=\(encodedQuery)&expand=true&per_page=200"
         let request = try createRequest(for: endpoint)
-        let tickets: [Ticket] = try await fetchData(for: request)
-        return tickets.sorted { $0.created_at > $1.created_at }
+        return try await fetchData(for: request)
     }
     
     func fetchTickets(byStatusId id: Int) async throws -> [Ticket] {
@@ -72,30 +92,6 @@ class ZammadAPIService {
         return try await fetchData(for: request)
     }
 
-    func fetchOverviews() async throws -> [ZammadView] {
-        let request = try createRequest(for: "overviews")
-        return try await fetchData(for: request)
-    }
-
-    func executeOverview(id: Int) async throws -> [Ticket] {
-        let idRequest = try createRequest(for: "overviews/\(id)/execute")
-        let (idData, response) = try await URLSession.shared.data(for: idRequest)
-        
-        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.invalidResponse
-        }
-        
-        struct TicketIdResponse: Codable { let tickets: [Int] }
-        let ticketIds = try JSONDecoder().decode(TicketIdResponse.self, from: idData).tickets
-        
-        if ticketIds.isEmpty {
-            return []
-        }
-        
-        let idQuery = ticketIds.map(String.init).joined(separator: " OR ")
-        return try await searchTickets(query: "id:(\(idQuery))")
-    }
-    
     func fetchTicket(id: Int) async throws -> Ticket {
         let request = try createRequest(for: "tickets/\(id)?expand=true")
         return try await fetchData(for: request)

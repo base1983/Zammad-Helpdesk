@@ -4,121 +4,117 @@ import Combine
 import UserNotifications
 import LocalAuthentication
 
-/// A shared manager to handle the state of a pending deep link.
-/// This avoids race conditions when the app is launched from a notification.
-class DeepLinkManager: ObservableObject {
-    static let shared = DeepLinkManager()
-    
-    @Published var pendingTicketID: Int?
-}
+/// Een gedeelde manager voor algemene instellingen en status.
 
 enum ColorSchemeOption: String, CaseIterable, Identifiable {
-    case system = "Systeem", light = "Licht", dark = "Donker"
+    case system, light, dark
     var id: Self { self }
+
+    var localizedString: String {
+        switch self {
+        case .system: "theme_system".localized()
+        case .light: "theme_light".localized()
+        case .dark: "theme_dark".localized()
+        }
+    }
 }
 
 class SettingsManager {
     static let shared = SettingsManager()
+    
+    // Keys voor UserDefaults
     private let tokenKey = "zammad_api_token"
     private let lockKey = "is_biometric_lock_enabled"
     private let themeKey = "color_scheme_option"
     private let serverURLKey = "zammad_server_url"
     private let adsRemovedKey = "are_ads_removed"
     
-    private let notificationsEnabledKey = "notifications_enabled"
-    private let newTicketNotificationsKey = "new_ticket_notifications_enabled"
-    private let assignmentNotificationsKey = "assignment_notifications_enabled"
-    private let replyNotificationsKey = "reply_notifications_enabled"
     private let realtimeNotificationsEnabledKey = "realtime_notifications_enabled"
     private let proxyUserIDKey = "proxy_user_id_key"
-    private let deviceTokenKey = "apns_device_token"
-    
-    private init() {}
-    
+    private let deviceTokenKey = "apn_device_token"
+    private let lastFetchDateKey = "background_last_fetch_date"
+
+    // MARK: - API & Server Settings
     func save(token: String) { UserDefaults.standard.set(token, forKey: tokenKey) }
     func loadToken() -> String? { UserDefaults.standard.string(forKey: tokenKey) }
-    func save(serverURL: String) {
-        var urlToSave = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !urlToSave.hasSuffix("/") { urlToSave += "/" }
-        UserDefaults.standard.set(urlToSave, forKey: serverURLKey)
-    }
+    
+    func save(serverURL: String) { UserDefaults.standard.set(serverURL, forKey: serverURLKey) }
     func loadServerURL() -> String { UserDefaults.standard.string(forKey: serverURLKey) ?? "" }
     
+    // MARK: - Security & Appearance
     func save(isLockEnabled: Bool) { UserDefaults.standard.set(isLockEnabled, forKey: lockKey) }
     func isLockEnabled() -> Bool { UserDefaults.standard.bool(forKey: lockKey) }
+    
     func save(theme: ColorSchemeOption) { UserDefaults.standard.set(theme.rawValue, forKey: themeKey) }
     func loadTheme() -> ColorSchemeOption {
-        return ColorSchemeOption(rawValue: UserDefaults.standard.string(forKey: themeKey) ?? "") ?? .system
+        let savedValue = UserDefaults.standard.string(forKey: themeKey) ?? ""
+        return ColorSchemeOption(rawValue: savedValue) ?? .system
     }
-    
+
+    // MARK: - In-App Purchases
     func save(areAdsRemoved: Bool) { UserDefaults.standard.set(areAdsRemoved, forKey: adsRemovedKey) }
     func areAdsRemoved() -> Bool { UserDefaults.standard.bool(forKey: adsRemovedKey) }
     
-    func save(notificationsEnabled: Bool) { UserDefaults.standard.set(notificationsEnabled, forKey: notificationsEnabledKey) }
-    func areNotificationsEnabled() -> Bool { UserDefaults.standard.bool(forKey: notificationsEnabledKey) }
-    func save(newTicketNotificationsEnabled: Bool) { UserDefaults.standard.set(newTicketNotificationsEnabled, forKey: newTicketNotificationsKey) }
-    func areNewTicketNotificationsEnabled() -> Bool { UserDefaults.standard.bool(forKey: newTicketNotificationsKey) }
-    func save(assignmentNotificationsEnabled: Bool) { UserDefaults.standard.set(assignmentNotificationsEnabled, forKey: assignmentNotificationsKey) }
-    func areAssignmentNotificationsEnabled() -> Bool { UserDefaults.standard.bool(forKey: assignmentNotificationsKey) }
-    func save(replyNotificationsEnabled: Bool) { UserDefaults.standard.set(replyNotificationsEnabled, forKey: replyNotificationsKey) }
-    func areReplyNotificationsEnabled() -> Bool { UserDefaults.standard.bool(forKey: replyNotificationsKey) }
-    
-    func save(realtimeNotificationsEnabled: Bool) { UserDefaults.standard.set(realtimeNotificationsEnabled, forKey: realtimeNotificationsEnabledKey) }
-    func areRealtimeNotificationsEnabled() -> Bool { UserDefaults.standard.bool(forKey: realtimeNotificationsEnabledKey) }
-    func getProxyUserID() -> String {
-        if let userID = UserDefaults.standard.string(forKey: proxyUserIDKey) {
-            return userID
-        } else {
-            let newUserID = UUID().uuidString
-            UserDefaults.standard.set(newUserID, forKey: proxyUserIDKey)
-            return newUserID
-        }
+    // MARK: - Notification Settings
+    // AANGEPAST: Deze functie slaat nu ALLEEN de voorkeur op.
+    // De logica voor aan/afmelden zit in je NotificationSetupManager en de UI Toggle.
+    func save(areRealtimeNotificationsEnabled: Bool) {
+        UserDefaults.standard.set(areRealtimeNotificationsEnabled, forKey: realtimeNotificationsEnabledKey)
     }
+    func areRealtimeNotificationsEnabled() -> Bool { UserDefaults.standard.bool(forKey: realtimeNotificationsEnabledKey) }
+    
+    // Proxy & Token Management (Nodig voor NotificationProxyService)
+    func save(proxyUserID: String) { UserDefaults.standard.set(proxyUserID, forKey: proxyUserIDKey) }
+    func getProxyUserID() -> String? { UserDefaults.standard.string(forKey: proxyUserIDKey) }
+    
     func save(deviceToken: String) { UserDefaults.standard.set(deviceToken, forKey: deviceTokenKey) }
     func loadDeviceToken() -> String? { UserDefaults.standard.string(forKey: deviceTokenKey) }
-}
 
-class NotificationManager {
-    static let shared = NotificationManager()
-    private init() {}
-
-    func requestAuthorization() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if granted {
-                DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
-            } else if let error = error { print("Notification permission error: \(error.localizedDescription)") }
-        }
+    // Hulpfunctie voor debugging
+    func getWebhookURL() -> String? {
+        guard let userID = getProxyUserID() else { return nil }
+        return "https://zammadproxy.world-ict.nl/webhook/\(userID)"
     }
     
-    func sendLocalNotification(title: String, body: String, userInfo: [AnyHashable: Any]? = nil, badge: Int? = nil) {
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        content.sound = .default
-        if let userInfo = userInfo {
-            content.userInfo = userInfo
-        }
-        if let badge = badge {
-            content.badge = NSNumber(value: badge)
-        }
-        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request)
-    }
+    // MARK: - Background Task Management
+    func save(lastFetchDate: Date) { UserDefaults.standard.set(lastFetchDate, forKey: lastFetchDateKey) }
+    func loadLastFetchDate() -> Date { UserDefaults.standard.object(forKey: lastFetchDateKey) as? Date ?? .distantPast }
 }
+
+// LET OP: Ik heb de 'NotificationManager' class hier verwijderd.
+// Je gebruikt nu 'NotificationSetupManager.swift' (uit het vorige antwoord) voor die logica.
 
 @MainActor
 class AuthenticationManager: ObservableObject {
     @Published var isUnlocked = false
     
     func authenticate() {
-        guard SettingsManager.shared.isLockEnabled() else { isUnlocked = true; return }
+        // Als slot uit staat, is hij altijd unlocked
+        guard SettingsManager.shared.isLockEnabled() else {
+            isUnlocked = true
+            return
+        }
         
         let context = LAContext()
-        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) {
-            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "unlock_reason".localized()) { success, _ in
-                DispatchQueue.main.async { self.isUnlocked = success }
+        var error: NSError?
+        
+        // Check of FaceID/TouchID mogelijk is
+        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
+            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "unlock_reason".localized()) { success, authenticationError in
+                DispatchQueue.main.async {
+                    if success {
+                        self.isUnlocked = true
+                    } else {
+                        // Mislukt (bijv. geannuleerd door gebruiker)
+                        self.isUnlocked = false
+                        print("Authenticatie mislukt: \(String(describing: authenticationError))")
+                    }
+                }
             }
         } else {
+            // Als het apparaat geen FaceID heeft of geen pincode, laten we de gebruiker erdoor
+            // Anders sluit je mensen buiten met oudere telefoons
+            print("Biometrie niet beschikbaar: \(String(describing: error))")
             isUnlocked = true
         }
     }

@@ -5,6 +5,7 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.baseonline.zammadhelpdesk.refresh</string>
+		<string>com.worldict.helpdesk.refresh</string>
 	</array>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-7428603098298858~5770764367</string>
