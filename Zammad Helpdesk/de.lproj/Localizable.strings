@@ -79,6 +79,9 @@
 "webhook_url_description" = "Ihre persönliche Webhook-URL für Echtzeit-Benachrichtigungen.";
 "copy_webhook_url" = "Webhook-URL kopieren";
 "setup_guide" = "Einrichtungsanleitung";
+"realtime_notifications_subtitle" = "Erhalten Sie Updates sofort per Push-Nachrichten";
+"linking_to_zammad" = "Verbinde mit Zammad...";
+"linked_set_url_in_zammad" = "Verbunden. Richten Sie diese URL in Zammad ein:";
 "about" = "Über";
 "app_version" = "App-Version";
 "remove_ads" = "Werbung entfernen";

@@ -97,6 +97,9 @@
 "webhook_url_description" = "Your personal webhook URL for real-time notifications.";
 "copy_webhook_url" = "Copy Webhook URL";
 "setup_guide" = "Setup Guide";
+"realtime_notifications_subtitle" = "Receive updates instantly via push messages";
+"linking_to_zammad" = "Linking to Zammad...";
+"linked_set_url_in_zammad" = "Linked. Set this URL in Zammad:";
 "about" = "About";
 "app_version" = "App Version";
 "remove_ads" = "Remove Ads";

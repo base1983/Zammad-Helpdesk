@@ -21,48 +21,41 @@ struct TicketListContainerView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            NavigationStack {
-                ZStack {
-                    ticketList
-                    statusOverlay
-                }
-                .navigationBarTitleDisplayMode(.inline)
-                
-                // 2. HERSTELDE DESTINATION (voor in-app lijst-tikken)
-                // Deze vangt de 'NavigationLink(value: ticket)' op
-                .navigationDestination(for: Ticket.self) { ticket in
-                    TicketDetailView(ticketID: ticket.id, viewModel: viewModel)
-                }
-                
-                // 3. NIEUWE DESTINATION (voor dieplink/push notificatie)
-                // Deze luistert naar de binding van ContentView
-                .navigationDestination(isPresented: $showDeepLinkedTicket) {
-                    if let ticket = ticketToShow {
+            VStack(spacing: 0) {
+                NavigationStack {
+                    ZStack {
+                        ticketList
+                        statusOverlay
+                    }
+                    .navigationBarTitleDisplayMode(.inline)
+                    .navigationDestination(for: Ticket.self) { ticket in
                         TicketDetailView(ticketID: ticket.id, viewModel: viewModel)
-                    } else {
-                        ProgressView()
+                    }
+                    .navigationDestination(isPresented: $showDeepLinkedTicket) {
+                        if let ticket = ticketToShow {
+                            TicketDetailView(ticketID: ticket.id, viewModel: viewModel)
+                        } else {
+                            ProgressView()
+                        }
+                    }
+                    .toolbar { navigationToolbar(width: geometry.size.width) }
+                    .toolbarBackground(.hidden, for: .navigationBar)
+                    .refreshable { await viewModel.refreshAllData() }
+                    .background {
+                        Image("background")
+                            .resizable()
+                            .scaledToFill()
+                            .ignoresSafeArea()
                     }
                 }
-                .toolbar { navigationToolbar(width: geometry.size.width) }
-                .toolbarBackground(.hidden, for: .navigationBar)
-                .refreshable { await viewModel.refreshAllData() }
-                .background {
-                    Image("background")
-                        .resizable()
-                        .scaledToFill()
-                        .ignoresSafeArea()
-                }
-                .overlay(alignment: .bottom) {
-                    if !areAdsRemoved {
-                        AdBannerView(adUnitID: adUnitID)
-                            .frame(height: 50)
-                            .background(.thinMaterial)
-                    }
+                
+                if !areAdsRemoved {
+                    AdBannerView(adUnitID: adUnitID, width: geometry.size.width)
+                        .frame(height: 50) // Keep a fixed height for the container
                 }
             }
             .tint(.accentColor)
             .onAppear {
-                // Deze logica is nog steeds correct om een raceconditie te voorkomen
                 if deepLinkManager.pendingTicketID == nil && viewModel.currentUser == nil {
                     Task { await viewModel.refreshAllData() }
                 }

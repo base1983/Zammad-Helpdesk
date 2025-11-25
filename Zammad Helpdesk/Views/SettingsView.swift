@@ -165,7 +165,7 @@ struct NotificationSettingsSection: View {
                     Text("realtime_notifications".localized())
                         .fontWeight(.medium)
                         .foregroundColor(.primary)
-                    Text("Ontvang updates direct via pushberichten")
+                    Text("realtime_notifications_subtitle".localized())
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -188,7 +188,7 @@ struct NotificationSettingsSection: View {
             if notifManager.isLoading {
                 HStack {
                     ProgressView().scaleEffect(0.8).padding(.trailing, 5)
-                    Text("Bezig met koppelen aan Zammad...")
+                    Text("linking_to_zammad".localized())
                         .font(.caption).foregroundColor(.orange)
                 }
             } else if let error = notifManager.errorMessage {
@@ -207,7 +207,7 @@ struct NotificationSettingsSection: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                        Text("Gekoppeld. Stel deze URL in bij Zammad:")
+                        Text("linked_set_url_in_zammad".localized())
                             .font(.caption)
                             .fontWeight(.semibold)
                     }

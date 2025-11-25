@@ -79,6 +79,9 @@
 "webhook_url_description" = "Uw persoonlijke webhook-URL voor real-time meldingen.";
 "copy_webhook_url" = "Webhook-URL kopiëren";
 "setup_guide" = "Installatiegids";
+"realtime_notifications_subtitle" = "Ontvang updates direct via pushberichten";
+"linking_to_zammad" = "Bezig met koppelen aan Zammad...";
+"linked_set_url_in_zammad" = "Gekoppeld. Stel deze URL in bij Zammad:";
 "about" = "Over";
 "app_version" = "App-versie";
 "remove_ads" = "Advertenties verwijderen";
