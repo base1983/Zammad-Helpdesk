@@ -187,10 +187,36 @@ class TicketViewModel: ObservableObject {
         }
     
     // MARK: - Update and Reply Logic
-    func updateTicket(_ ticket: Ticket) async throws {
-        let payload = TicketUpdatePayload(owner_id: ticket.owner_id, state_id: ticket.state_id, priority_id: ticket.priority_id)
-        _ = try await apiService.updateTicket(id: ticket.id, payload: payload)
-        await refreshAllData()
+    func updateTicket(_ ticket: Ticket, pendingTime: Date? = nil) async throws -> Bool {
+        var payload = TicketUpdatePayload(owner_id: ticket.owner_id, state_id: ticket.state_id, priority_id: ticket.priority_id, pending_time: nil)
+        
+        if let pendingTime = pendingTime {
+            let formatter = ISO8601DateFormatter()
+            payload.pending_time = formatter.string(from: pendingTime)
+        }
+        
+        do {
+            _ = try await apiService.updateTicket(id: ticket.id, payload: payload)
+            await refreshAllData()
+            return false // Success, no pending time needed
+        } catch APIError.serverError(let statusCode, let message) {
+            var isPendingTimeError = false
+            if let msg = message, let data = msg.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+               let errorStr = json["error"] as? String {
+                if errorStr.contains("Missing required value for field 'pending_time'") {
+                    isPendingTimeError = true
+                }
+            }
+
+            if statusCode == 422 && isPendingTimeError {
+                return true // Pending time is required
+            }
+            
+            throw APIError.serverError(statusCode: statusCode, message: message) // Re-throw other errors
+        } catch {
+            throw error // Re-throw other error types
+        }
     }
     
     func sendReply(for ticket: Ticket, with body: String, subject: String, recipient: String, articleToReplyTo: TicketArticle?) async throws {

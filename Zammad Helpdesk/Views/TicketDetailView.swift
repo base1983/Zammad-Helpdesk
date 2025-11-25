@@ -11,70 +11,50 @@ struct TicketDetailView: View {
     
     @State private var isShowingEditSheet = false
     @State private var isShowingReplySheet = false
+    @State private var showPendingTimePicker = false
+    @State private var pendingTime = Date()
     
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
         Group {
-            if isLoading {
+            if isLoading && ticket == nil {
                 ProgressView("loading_ticket_details".localized())
-                    .padding(30)
-                    .background(.thinMaterial)
-                    .cornerRadius(12)
             } else if let errorMessage = errorMessage {
-                Text(errorMessage)
-                    .padding(30)
-                    .background(.thinMaterial)
-                    .cornerRadius(12)
+                VStack {
+                    Text(errorMessage).foregroundColor(.red)
+                    Button("try_again".localized(), action: { Task { await loadDetails() } })
+                }
             } else if let ticket = ticket {
                 ticketContent(ticket)
             }
         }
-        .background(
-            Image("background")
-                .resizable()
-                .scaledToFill()
-                .ignoresSafeArea()
-        )
         .task { await loadDetails() }
         .navigationBarBackButtonHidden(true)
-        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button(action: { dismiss() }) {
-                    HStack {
-                        Image(systemName: "chevron.left")
-                    }
+                    Image(systemName: "chevron.left.circle.fill")
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.primary, .thinMaterial)
+                        .font(.title2)
                 }
-                .toolbarButtonStyle()
             }
             ToolbarItem(placement: .principal) {
-                Text(ticket?.title ?? "ticket_details_title".localized())
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                Text(ticket?.title ?? "").lineLimit(1).truncationMode(.tail)
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack {
-                    Button(action: { isShowingEditSheet = true }) {
-                        Image(systemName: "square.and.pencil")
-                    }
-                    .toolbarButtonStyle()
-                    
-                    Button(action: { isShowingReplySheet = true }) {
-                        Image(systemName: "arrowshape.turn.up.left")
-                    }
-                    .toolbarButtonStyle()
+                    Button(action: { isShowingEditSheet = true }) { Image(systemName: "square.and.pencil") }
+                    Button(action: { isShowingReplySheet = true }) { Image(systemName: "arrowshape.turn.up.left") }
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
         }
         .sheet(isPresented: $isShowingEditSheet) {
-            if self.ticket != nil {
-                TicketEditView(viewModel: viewModel, ticket: Binding(
-                    get: { self.ticket! },
-                    set: { self.ticket = $0 }
-                ))
+            if let ticketBinding = Binding($ticket) {
+                TicketEditView(viewModel: viewModel, ticket: ticketBinding)
             }
         }
         .sheet(isPresented: $isShowingReplySheet) {
@@ -83,58 +63,55 @@ struct TicketDetailView: View {
                 TicketReplyView(viewModel: viewModel, ticket: ticket, articleToReplyTo: mostRecentArticle)
             }
         }
+        .sheet(isPresented: $showPendingTimePicker) {
+            pendingTimePickerView
+        }
     }
     
     @ViewBuilder
     private func ticketContent(_ ticket: Ticket) -> some View {
-        // We use a List to get the standard iOS grouped appearance.
         List {
             Section(header: Text("details_section_header".localized()).font(.headline)) {
                 detailRow(label: "ticket_number".localized(), value: "#\(ticket.number)")
                 detailRow(label: "customer".localized(), value: viewModel.userName(for: ticket.customer_id))
                 
-                // Status is now an interactive NavigationLink.
                 NavigationLink {
-                    if self.ticket != nil {
+                    if let ticketBinding = Binding($ticket) {
                         PickerEditView(
                             title: "status".localized(),
-                            selection: Binding(get: { self.ticket!.state_id }, set: { self.ticket!.state_id = $0 }),
+                            selection: ticketBinding.state_id,
                             items: viewModel.ticketStates,
                             displayName: { state in viewModel.localizedStatusName(for: state.name) },
-                            onSave: { saveChanges() }
+                            onSave: { await saveChanges() }
                         )
                     }
                 } label: {
                     detailRow(label: "status".localized(), value: viewModel.localizedStatusName(for: viewModel.stateName(for: ticket.state_id)))
                 }
                 
-                // Priority is now an interactive NavigationLink.
                 NavigationLink {
-                    if self.ticket != nil {
+                    if let ticketBinding = Binding($ticket) {
                         PickerEditView(
                             title: "priority".localized(),
-                            selection: Binding(get: { self.ticket!.priority_id }, set: { self.ticket!.priority_id = $0 }),
+                            selection: ticketBinding.priority_id,
                             items: viewModel.ticketPriorities,
                             displayName: { $0.name },
-                            onSave: { saveChanges() }
+                            onSave: { await saveChanges() }
                         )
                     }
                 } label: {
                     detailRow(label: "priority".localized(), value: viewModel.priorityName(for: ticket.priority_id))
                 }
                 
-                // Owner is now an interactive NavigationLink.
                 NavigationLink {
-                    if self.ticket != nil {
-                        // Create a temporary list for the picker that includes "Unassigned".
+                    if let ticketBinding = Binding($ticket) {
                         let owners = [User(id: 1, organization_id: nil, login: "", firstname: "unassigned".localized(), lastname: "", email: "", web: nil, phone: nil, fax: nil, mobile: nil, department: nil, street: nil, zip: nil, city: nil, country: nil, address: nil, vip: false, verified: false, active: true, note: nil, last_login: nil, source: nil, login_failed: 0, out_of_office: false, out_of_office_start_at: nil, out_of_office_end_at: nil, out_of_office_replacement_id: nil, preferences: UserPreferences(), role_ids: nil, organization_ids: nil, authorization_ids: nil, group_ids: nil, updated_by_id: 0, created_by_id: 0, created_at: Date(), updated_at: Date())] + viewModel.agentUsers
-                        
                         PickerEditView(
                             title: "owner".localized(),
-                            selection: Binding(get: { self.ticket!.owner_id }, set: { self.ticket!.owner_id = $0 }),
+                            selection: ticketBinding.owner_id,
                             items: owners,
                             displayName: { $0.fullname },
-                            onSave: { saveChanges() }
+                            onSave: { await saveChanges() }
                         )
                     }
                 } label: {
@@ -148,21 +125,16 @@ struct TicketDetailView: View {
                 ForEach(articles.sorted(by: { $0.created_at > $1.created_at })) { article in
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text(viewModel.userName(for: article.created_by_id))
-                                .fontWeight(.semibold)
+                            Text(viewModel.userName(for: article.created_by_id)).fontWeight(.semibold)
                             Spacer()
-                            Text(article.created_at.formatted(date: .numeric, time: .shortened))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            Text(article.created_at.formatted(date: .numeric, time: .shortened)).font(.caption).foregroundColor(.secondary)
                         }
-                        Text(article.body.strippingHTML())
-                            .padding(.top, 4)
+                        Text(article.body.strippingHTML()).padding(.top, 4)
                     }
                     .padding(.vertical, 8)
                 }
             }
         }
-        .scrollContentBackground(.hidden)
         .listStyle(.insetGrouped)
     }
 
@@ -174,23 +146,58 @@ struct TicketDetailView: View {
         }
     }
     
-    private func saveChanges() {
-        Task {
-            if let ticketToSave = ticket {
-                try? await viewModel.updateTicket(ticketToSave)
+    @ViewBuilder
+    private var pendingTimePickerView: some View {
+        NavigationStack {
+            VStack {
+                DatePicker("select_pending_time".localized(), selection: $pendingTime, displayedComponents: [.date, .hourAndMinute])
+                    .datePickerStyle(.graphical)
+                    .padding()
+            }
+            .navigationTitle("pending_time_title".localized())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("cancel".localized(), action: {
+                        showPendingTimePicker = false
+                        Task { await loadDetails() }
+                    })
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("done".localized(), action: {
+                        showPendingTimePicker = false
+                        Task { _ = await saveChanges(pendingTime: pendingTime) }
+                    })
+                }
             }
         }
     }
     
-    private func loadDetails() async {
-        isLoading = true
+    private func saveChanges(pendingTime: Date? = nil) async -> Bool {
+        guard let ticketToUpdate = ticket else { return false }
         do {
-            let fetchedTicket = try await ZammadAPIService.shared.fetchTicket(id: ticketID)
-            let fetchedArticles = try await ZammadAPIService.shared.fetchArticles(for: ticketID)
-            
-            self.ticket = fetchedTicket
-            self.articles = fetchedArticles
-            self.errorMessage = nil
+            let needsPendingTime = try await viewModel.updateTicket(ticketToUpdate, pendingTime: pendingTime)
+            if needsPendingTime {
+                self.showPendingTimePicker = true
+                return true // Keep PickerEditView open
+            } else {
+                await viewModel.refreshAllData()
+                await loadDetails()
+                return false // Dismiss PickerEditView
+            }
+        } catch {
+            self.errorMessage = error.localizedDescription
+            await loadDetails()
+            return false // Dismiss PickerEditView
+        }
+    }
+    
+    private func loadDetails() async {
+        if ticket == nil { isLoading = true }
+        self.errorMessage = nil
+        do {
+            self.ticket = try await ZammadAPIService.shared.fetchTicket(id: ticketID)
+            self.articles = try await ZammadAPIService.shared.fetchArticles(for: ticketID)
         } catch {
             self.errorMessage = error.localizedDescription
         }

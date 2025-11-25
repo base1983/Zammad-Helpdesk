@@ -80,6 +80,8 @@
 "priority_picker_label" = "Priority";
 "assignment_section_header" = "Assignment";
 "owner_picker_label" = "Owner";
+"select_pending_time" = "Select Pending Time";
+"pending_time_title" = "Pending Time";
 
 // MARK: - Settings
 "settings" = "Settings";

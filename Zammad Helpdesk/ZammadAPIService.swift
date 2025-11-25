@@ -2,17 +2,24 @@ import Foundation
 
 enum APIError: Error, LocalizedError {
     case invalidResponse, decodingError, tokenNotSet, authenticationFailed, userNotFound, invalidURL
-    case serverError(statusCode: Int)
+    case serverError(statusCode: Int, message: String?)
     
     var errorDescription: String? {
         switch self {
-        case .invalidResponse: "Invalid response from the server."
-        case .decodingError: "Could not process data from the server."
-        case .tokenNotSet: "API token not set. Please go to Settings."
-        case .authenticationFailed: "Authentication failed. Please check your API token."
-        case .userNotFound: "Could not find the current user."
-        case .invalidURL: "The configured server URL is invalid."
-        case .serverError(let code): "Server error: Status \(code)."
+        case .invalidResponse: return "Invalid response from the server."
+        case .decodingError: return "Could not process data from the server."
+        case .tokenNotSet: return "API token not set. Please go to Settings."
+        case .authenticationFailed: return "Authentication failed. Please check your API token."
+        case .userNotFound: return "Could not find the current user."
+        case .invalidURL: return "The configured server URL is invalid."
+        case .serverError(let code, let message):
+            if let msg = message, let data = msg.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+               let error = json["error"] as? String {
+                return error
+            }
+            // Fallback if message is not parsable or not present
+            return "Server error: Status \(code)."
         }
     }
 }
@@ -50,8 +57,9 @@ class ZammadAPIService {
         guard let httpResponse = response as? HTTPURLResponse else { throw APIError.invalidResponse }
         if httpResponse.statusCode == 401 { throw APIError.authenticationFailed }
         guard (200...299).contains(httpResponse.statusCode) else {
-            if let errorBody = String(data: data, encoding: .utf8) { print("Server Error (\(httpResponse.statusCode)): \(errorBody)") }
-            throw APIError.serverError(statusCode: httpResponse.statusCode)
+            let errorBody = String(data: data, encoding: .utf8)
+            if let errorBody { print("Server Error (\(httpResponse.statusCode)): \(errorBody)") }
+            throw APIError.serverError(statusCode: httpResponse.statusCode, message: errorBody)
         }
         
         let decoder = JSONDecoder()

@@ -64,6 +64,8 @@
 "priority_picker_label" = "Priorität";
 "assignment_section_header" = "Zuweisung";
 "owner_picker_label" = "Besitzer";
+"select_pending_time" = "Wartezeit auswählen";
+"pending_time_title" = "Wartezeit";
 "settings" = "Einstellungen";
 "security" = "Sicherheit";
 "enable_biometric_lock" = "FaceID-Sperre aktivieren";

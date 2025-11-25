@@ -64,6 +64,8 @@
 "priority_picker_label" = "Prioriteit";
 "assignment_section_header" = "Toewijzing";
 "owner_picker_label" = "Eigenaar";
+"select_pending_time" = "Selecteer wachttijd";
+"pending_time_title" = "Wachttijd";
 "settings" = "Instellingen";
 "security" = "Beveiliging";
 "enable_biometric_lock" = "FaceID-slot inschakelen";

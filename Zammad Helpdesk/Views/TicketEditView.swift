@@ -6,9 +6,17 @@ struct TicketEditView: View {
     
     @Environment(\.dismiss) var dismiss
     
+    @State private var showPendingTimePicker = false
+    @State private var pendingTime = Date()
+    @State private var error: String?
+    
     var body: some View {
         NavigationStack {
             Form {
+                if let error {
+                    Text(error)
+                        .foregroundStyle(.red)
+                }
                 detailsSection
                 assignmentSection
             }
@@ -27,6 +35,9 @@ struct TicketEditView: View {
                     }
                     .toolbarButtonStyle()
                 }
+            }
+            .sheet(isPresented: $showPendingTimePicker) {
+                pendingTimePickerView
             }
         }
     }
@@ -61,13 +72,46 @@ struct TicketEditView: View {
             }
         }
     }
+    
+    @ViewBuilder
+    private var pendingTimePickerView: some View {
+        NavigationStack {
+            VStack {
+                DatePicker(
+                    "select_pending_time".localized(),
+                    selection: $pendingTime,
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+                .datePickerStyle(.graphical)
+                .padding()
+            }
+            .navigationTitle("pending_time_title".localized())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("cancel".localized(), action: { showPendingTimePicker = false })
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("done".localized(), action: {
+                        saveTicket(pendingTime: pendingTime)
+                        showPendingTimePicker = false
+                    })
+                }
+            }
+        }
+    }
 
-    private func saveTicket() {
+    private func saveTicket(pendingTime: Date? = nil) {
         Task {
             do {
-                try await viewModel.updateTicket(ticket)
-                dismiss()
+                let needsPendingTime = try await viewModel.updateTicket(ticket, pendingTime: pendingTime)
+                if needsPendingTime {
+                    showPendingTimePicker = true
+                } else {
+                    dismiss()
+                }
             } catch {
+                self.error = error.localizedDescription
                 print("Failed to update ticket: \(error.localizedDescription)")
             }
         }

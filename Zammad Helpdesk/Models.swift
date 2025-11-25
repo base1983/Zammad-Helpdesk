@@ -155,6 +155,7 @@ struct TicketUpdatePayload: Codable {
     var owner_id: Int
     var state_id: Int
     var priority_id: Int
+    var pending_time: String?
 }
 
 struct ArticleCreationPayload: Codable {
