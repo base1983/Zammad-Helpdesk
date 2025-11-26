@@ -129,3 +129,10 @@
 "webhook_guide_step3_body" = "A \"Trigger\" is an event in Zammad that should activate the webhook. For the best results, we recommend setting up triggers for the following events:\n\n- Ticket Created\n- Ticket Updated";
 "webhook_guide_step4_title" = "Step 4: Save and Test";
 "webhook_guide_step4_body" = "1. Click \"Save\" or \"Submit\".\n2. Zammad will send a \"ping\" to the URL to confirm it's working. You should see a success message in Zammad.";
+
+// MARK: - Time Accounting
+"time_accounting" = "Time Accounting";
+"activity" = "Activity";
+"time_in_hours" = "Time (e.g. 1.5 for 1h 30m)";
+"add_spent_time" = "Add Spent Time";
+"activity_id" = "Activity ID";

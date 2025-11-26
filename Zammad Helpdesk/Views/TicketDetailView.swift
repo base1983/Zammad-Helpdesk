@@ -11,6 +11,7 @@ struct TicketDetailView: View {
     
     @State private var isShowingEditSheet = false
     @State private var isShowingReplySheet = false
+    @State private var isShowingTimeSheet = false
     @State private var showPendingTimePicker = false
     @State private var pendingTime = Date()
     
@@ -45,6 +46,7 @@ struct TicketDetailView: View {
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack {
+                    Button(action: { isShowingTimeSheet = true }) { Image(systemName: "clock") }
                     Button(action: { isShowingEditSheet = true }) { Image(systemName: "square.and.pencil") }
                     Button(action: { isShowingReplySheet = true }) { Image(systemName: "arrowshape.turn.up.left") }
                 }
@@ -61,6 +63,11 @@ struct TicketDetailView: View {
             if let ticket = ticket {
                 let mostRecentArticle = articles.max { $0.created_at < $1.created_at }
                 TicketReplyView(viewModel: viewModel, ticket: ticket, articleToReplyTo: mostRecentArticle)
+            }
+        }
+        .sheet(isPresented: $isShowingTimeSheet) {
+            if let ticket = ticket {
+                TimeAccountingEditView(viewModel: viewModel, ticket: ticket)
             }
         }
         .sheet(isPresented: $showPendingTimePicker) {

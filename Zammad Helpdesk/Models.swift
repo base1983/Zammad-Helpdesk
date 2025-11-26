@@ -165,4 +165,25 @@ struct ArticleCreationPayload: Codable {
     var to: String
     var subject: String
 }
+// Ensure this is in Models.swift
+struct TimeAccountingPayload: Codable {
+    var time_unit: String
+    var type_id: Int
+}
+
+struct TimeAccountingType: Identifiable, Codable, Hashable {
+    let id: Int
+    let name: String
+    let active: Bool
+}
+
+struct TimeAccounting: Identifiable, Codable, Hashable {
+    let id: Int
+    let ticket_id: Int
+    let time_unit: String
+    // FIX: Rename to match API JSON and make optional
+    let ticket_article_id: Int?
+    let created_by_id: Int
+    let created_at: Date
+}
 

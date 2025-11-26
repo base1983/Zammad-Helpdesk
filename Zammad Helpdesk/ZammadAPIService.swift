@@ -135,16 +135,45 @@ class ZammadAPIService {
         return try await fetchData(for: request)
     }
     
-    func updateTicket(id: Int, payload: TicketUpdatePayload) async throws -> Ticket {
-        var request = try createRequest(for: "tickets/\(id)", method: "PUT")
-        request.httpBody = try JSONEncoder().encode(payload)
-        return try await fetchData(for: request)
-    }
-    
-    func createArticle(payload: ArticleCreationPayload) async throws -> TicketArticle {
-        var request = try createRequest(for: "ticket_articles", method: "POST")
-        request.httpBody = try JSONEncoder().encode(payload)
-        return try await fetchData(for: request)
-    }
-}
+    // ... (Keep your existing code above updateTicket) ...
 
+        func updateTicket(id: Int, payload: TicketUpdatePayload) async throws -> Ticket {
+            var request = try createRequest(for: "tickets/\(id)", method: "PUT")
+            request.httpBody = try JSONEncoder().encode(payload)
+            return try await fetchData(for: request)
+        }
+        
+        func createArticle(payload: ArticleCreationPayload) async throws -> TicketArticle {
+            var request = try createRequest(for: "ticket_articles", method: "POST")
+            request.httpBody = try JSONEncoder().encode(payload)
+            return try await fetchData(for: request)
+        }
+        
+        // MARK: - Time Accounting Methods
+        
+    func fetchTimeAccountingTypes() async throws -> [TimeAccountingType] {
+            // OLD (Incorrect):
+            // let request = try createRequest(for: "time_accounting_types")
+            
+            // NEW (Correct):
+            let request = try createRequest(for: "time_accounting/types")
+            return try await fetchData(for: request)
+        }
+        func createTimeAccounting(ticketId: Int, payload: TimeAccountingPayload) async throws -> TimeAccounting {
+            var request = try createRequest(for: "tickets/\(ticketId)/time_accountings", method: "POST")
+            request.httpBody = try JSONEncoder().encode(payload)
+            return try await fetchData(for: request)
+        }
+
+        func fetchTimeAccountingTypesGracefully() async throws -> [TimeAccountingType] {
+            do {
+                return try await fetchTimeAccountingTypes()
+            } catch APIError.serverError(let statusCode, _) where statusCode == 404 {
+                print("Time accounting types endpoint not found (404). Returning empty list.")
+                return []
+            } catch {
+                // Re-throw other errors so the ViewModel knows something else went wrong
+                throw error
+            }
+        }
+    }

@@ -11,6 +11,7 @@ class TicketViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var allUsers: [User] = []
     @Published var roles: [Role] = []
+    @Published var timeAccountingTypes: [TimeAccountingType] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var activeFilter: FilterType = .myTickets
@@ -109,10 +110,11 @@ class TicketViewModel: ObservableObject {
             priorities: apiService.fetchTicketPriorities(),
             user: apiService.fetchCurrentUser(),
             allUsers: apiService.fetchAllUsers(),
-            roles: apiService.fetchRoles()
+            roles: apiService.fetchRoles(),
+            timeTypes: apiService.fetchTimeAccountingTypesGracefully()
         )
         let loaded = try await data
-        (ticketStates, ticketPriorities, currentUser, allUsers, roles) = loaded
+        (ticketStates, ticketPriorities, currentUser, allUsers, roles, timeAccountingTypes) = loaded
     }
 
     private func fetchTickets(for filter: FilterType) async throws -> [Ticket] {
@@ -227,6 +229,15 @@ class TicketViewModel: ObservableObject {
     func addInternalNote(for ticket: Ticket, with body: String) async throws {
         let payload = ArticleCreationPayload(ticket_id: ticket.id, body: body, internal_note: true, to: "", subject: ticket.title)
         _ = try await apiService.createArticle(payload: payload)
+    }
+    
+    func addSpentTime(for ticket: Ticket, time: String, typeId: Int) async throws {
+        // Step 1: Create the time accounting entry
+        let timePayload = TimeAccountingPayload(time_unit: time, type_id: typeId)
+        _ = try await apiService.createTimeAccounting(ticketId: ticket.id, payload: timePayload)
+        
+        // Optional: Refresh data to show the new article and time entry
+        await refreshAllData()
     }
 
     // MARK: - Helper & Formatting Functions
