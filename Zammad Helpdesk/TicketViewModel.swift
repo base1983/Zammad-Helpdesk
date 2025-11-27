@@ -14,6 +14,7 @@ class TicketViewModel: ObservableObject {
     @Published var groups: [TicketGroup] = []
     @Published var organizations: [Organization] = []
     @Published var timeAccountingTypes: [TimeAccountingType] = []
+    @Published var isTimeAccountingEnabled = false
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var activeFilter: FilterType = .myTickets
@@ -119,6 +120,7 @@ class TicketViewModel: ObservableObject {
         )
         let loaded = try await data
         (ticketStates, ticketPriorities, currentUser, allUsers, roles, groups, organizations, timeAccountingTypes) = loaded
+        isTimeAccountingEnabled = !timeAccountingTypes.isEmpty
     }
 
     private func fetchTickets(for filter: FilterType) async throws -> [Ticket] {
@@ -194,7 +196,7 @@ class TicketViewModel: ObservableObject {
     
     // MARK: - Update and Reply Logic
     func updateTicket(_ ticket: Ticket, pendingTime: Date? = nil) async throws -> Bool {
-        var payload = TicketUpdatePayload(owner_id: ticket.owner_id, state_id: ticket.state_id, priority_id: ticket.priority_id, pending_time: nil)
+        var payload = TicketUpdatePayload(owner_id: ticket.owner_id, state_id: ticket.state_id, priority_id: ticket.priority_id, customer_id: ticket.customer_id, pending_time: nil)
         
         if let pendingTime = pendingTime {
             let formatter = ISO8601DateFormatter()

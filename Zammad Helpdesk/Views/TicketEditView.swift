@@ -7,6 +7,8 @@ struct TicketEditView: View {
     @Environment(\.dismiss) var dismiss
     
     @State private var showPendingTimePicker = false
+    @State private var isShowingCustomerSearch = false
+    @State private var optionalCustomerId: Int? = nil
     @State private var pendingTime = Date()
     @State private var error: String?
     
@@ -39,6 +41,16 @@ struct TicketEditView: View {
             .sheet(isPresented: $showPendingTimePicker) {
                 pendingTimePickerView
             }
+            .sheet(isPresented: $isShowingCustomerSearch, onDismiss: {
+                if let customerId = optionalCustomerId {
+                    ticket.customer_id = customerId
+                }
+            }) {
+                CustomerSearchView(selectedCustomerId: $optionalCustomerId, viewModel: viewModel)
+            }
+            .onAppear {
+                optionalCustomerId = ticket.customer_id
+            }
         }
     }
 
@@ -46,6 +58,20 @@ struct TicketEditView: View {
     private var detailsSection: some View {
         Section(header: Text("details_section_header".localized())) {
             TextField("ticket_title_placeholder".localized(), text: $ticket.title)
+            
+            HStack {
+                Text("customer".localized())
+                Spacer()
+                Button(action: {
+                    isShowingCustomerSearch = true
+                }) {
+                    HStack {
+                        Text(viewModel.userName(for: ticket.customer_id))
+                        Image(systemName: "chevron.up.chevron.down")
+                    }
+                }
+                .buttonStyle(.plain)
+            }
             
             Picker("status_picker_label".localized(), selection: $ticket.state_id) {
                 ForEach(viewModel.ticketStates) { state in

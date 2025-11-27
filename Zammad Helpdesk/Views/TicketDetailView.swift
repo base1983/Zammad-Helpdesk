@@ -12,6 +12,8 @@ struct TicketDetailView: View {
     @State private var isShowingEditSheet = false
     @State private var isShowingReplySheet = false
     @State private var isShowingTimeSheet = false
+    @State private var isShowingCustomerSearch = false
+    @State private var optionalCustomerId: Int? = nil
     @State private var showPendingTimePicker = false
     @State private var pendingTime = Date()
     
@@ -46,7 +48,9 @@ struct TicketDetailView: View {
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack {
-                    Button(action: { isShowingTimeSheet = true }) { Image(systemName: "clock") }
+                    if viewModel.isTimeAccountingEnabled {
+                        Button(action: { isShowingTimeSheet = true }) { Image(systemName: "clock") }
+                    }
                     Button(action: { isShowingEditSheet = true }) { Image(systemName: "square.and.pencil") }
                     Button(action: { isShowingReplySheet = true }) { Image(systemName: "arrowshape.turn.up.left") }
                 }
@@ -70,6 +74,14 @@ struct TicketDetailView: View {
                 TimeAccountingEditView(viewModel: viewModel, ticket: ticket)
             }
         }
+        .sheet(isPresented: $isShowingCustomerSearch, onDismiss: {
+            if let customerId = optionalCustomerId, ticket?.customer_id != customerId {
+                ticket?.customer_id = customerId
+                Task { _ = await saveChanges() }
+            }
+        }) {
+            CustomerSearchView(selectedCustomerId: $optionalCustomerId, viewModel: viewModel)
+        }
         .sheet(isPresented: $showPendingTimePicker) {
             pendingTimePickerView
         }
@@ -80,7 +92,13 @@ struct TicketDetailView: View {
         List {
             Section(header: Text("details_section_header".localized()).font(.headline)) {
                 detailRow(label: "ticket_number".localized(), value: "#\(ticket.number)")
-                detailRow(label: "customer".localized(), value: viewModel.userName(for: ticket.customer_id))
+                Button(action: {
+                    optionalCustomerId = ticket.customer_id
+                    isShowingCustomerSearch = true
+                }) {
+                    detailRow(label: "customer".localized(), value: viewModel.userName(for: ticket.customer_id))
+                }
+                .buttonStyle(.plain)
                 
                 NavigationLink {
                     if let ticketBinding = Binding($ticket) {
