@@ -11,6 +11,8 @@ class TicketViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var allUsers: [User] = []
     @Published var roles: [Role] = []
+    @Published var groups: [TicketGroup] = []
+    @Published var organizations: [Organization] = []
     @Published var timeAccountingTypes: [TimeAccountingType] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -111,10 +113,12 @@ class TicketViewModel: ObservableObject {
             user: apiService.fetchCurrentUser(),
             allUsers: apiService.fetchAllUsers(),
             roles: apiService.fetchRoles(),
+            groups: apiService.fetchGroups(),
+            organizations: apiService.fetchOrganizations(),
             timeTypes: apiService.fetchTimeAccountingTypesGracefully()
         )
         let loaded = try await data
-        (ticketStates, ticketPriorities, currentUser, allUsers, roles, timeAccountingTypes) = loaded
+        (ticketStates, ticketPriorities, currentUser, allUsers, roles, groups, organizations, timeAccountingTypes) = loaded
     }
 
     private func fetchTickets(for filter: FilterType) async throws -> [Ticket] {
@@ -226,6 +230,23 @@ class TicketViewModel: ObservableObject {
         _ = try await apiService.createArticle(payload: payload)
     }
     
+    func createTicket(title: String, groupId: Int, customerId: Int, stateId: Int, priorityId: Int, ownerId: Int?, tags: String?, articleBody: String, articleType: String) async throws {
+        let articlePayload = TicketCreationPayload.ArticlePayload(body: articleBody, type: articleType, isInternal: false)
+        let ticketPayload = TicketCreationPayload(
+            title: title,
+            group_id: groupId,
+            customer_id: customerId,
+            state_id: stateId,
+            priority_id: priorityId,
+            owner_id: ownerId,
+            tags: tags,
+            article: articlePayload
+        )
+        
+        _ = try await apiService.createTicket(payload: ticketPayload)
+        await refreshAllData()
+    }
+    
     func addInternalNote(for ticket: Ticket, with body: String) async throws {
         let payload = ArticleCreationPayload(ticket_id: ticket.id, body: body, internal_note: true, to: "", subject: ticket.title)
         _ = try await apiService.createArticle(payload: payload)
@@ -243,7 +264,17 @@ class TicketViewModel: ObservableObject {
     // MARK: - Helper & Formatting Functions
     func stateName(for id: Int) -> String { ticketStates.first { $0.id == id }?.name ?? "unknown".localized() }
     func priorityName(for id: Int) -> String { ticketPriorities.first { $0.id == id }?.name ?? "unknown".localized() }
-    func userName(for id: Int) -> String { allUsers.first { $0.id == id }?.fullname ?? "unassigned".localized() }
+    func userName(for id: Int) -> String {
+        guard let user = allUsers.first(where: { $0.id == id }) else { return "unassigned".localized() }
+        if let orgName = organizationName(for: user.organization_id) {
+            return "\(user.fullname) (\(orgName))"
+        }
+        return user.fullname
+    }
+    func organizationName(for id: Int?) -> String? {
+        guard let id = id else { return nil }
+        return organizations.first { $0.id == id }?.name
+    }
     
     func localizedStatusName(for statusName: String) -> String {
         switch statusName.lowercased() {
@@ -253,6 +284,15 @@ class TicketViewModel: ObservableObject {
         case "merged": "status_merged".localized()
         case "pending close": "status_pending_close".localized()
         default: statusName.prefix(1).capitalized + statusName.dropFirst()
+        }
+    }
+
+    func localizedPriorityName(for priorityName: String) -> String {
+        switch priorityName.lowercased() {
+        case "1 low": "priority_low".localized()
+        case "2 normal": "priority_normal".localized()
+        case "3 high": "priority_high".localized()
+        default: priorityName.prefix(1).capitalized + priorityName.dropFirst()
         }
     }
 
@@ -277,4 +317,3 @@ class TicketViewModel: ObservableObject {
         }
     }
 }
-

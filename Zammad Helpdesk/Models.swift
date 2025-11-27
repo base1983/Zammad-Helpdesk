@@ -151,6 +151,17 @@ struct Role: Identifiable, Codable, Hashable {
     let active: Bool
 }
 
+struct TicketGroup: Identifiable, Codable, Hashable {
+    let id: Int
+    let name: String
+    let active: Bool
+}
+
+struct Organization: Identifiable, Codable, Hashable {
+    let id: Int
+    let name: String
+}
+
 struct TicketUpdatePayload: Codable {
     var owner_id: Int
     var state_id: Int
@@ -159,12 +170,67 @@ struct TicketUpdatePayload: Codable {
 }
 
 struct ArticleCreationPayload: Codable {
+
     var ticket_id: Int
+
     var body: String
+
     var internal_note: Bool
+
     var to: String
+
     var subject: String
+
 }
+
+
+
+struct TicketCreationPayload: Codable {
+
+    var title: String
+
+    var group_id: Int
+
+    var customer_id: Int
+
+    var state_id: Int
+
+    var priority_id: Int
+
+    var owner_id: Int?
+
+    var tags: String?
+
+    var article: ArticlePayload
+
+
+
+    struct ArticlePayload: Codable {
+
+        var body: String
+
+        var type: String
+
+        // `internal` is a keyword in Swift, so we use a custom key mapping.
+
+        var isInternal: Bool
+
+
+
+        enum CodingKeys: String, CodingKey {
+
+            case body, type
+
+            case isInternal = "internal"
+
+        }
+
+    }
+
+}
+
+
+
 // Ensure this is in Models.swift
 struct TimeAccountingPayload: Codable {
     var time_unit: String

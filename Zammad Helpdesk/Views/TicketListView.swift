@@ -1,12 +1,14 @@
 import SwiftUI
 
 struct TicketListContainerView: View {
-    @ObservedObject var viewModel: TicketViewModel
-    
-    // 1. Accepteert de bindings van ContentView
     @Binding var ticketToShow: Ticket?
     @Binding var showDeepLinkedTicket: Bool
     
+    @ObservedObject var viewModel: TicketViewModel
+    
+    // 1. Accepteert de bindings van ContentView
+    
+    @State private var isShowingCreateTicket = false
     @State private var isShowingSettings = false
     @AppStorage("are_ads_removed") private var areAdsRemoved: Bool = false
     
@@ -15,9 +17,15 @@ struct TicketListContainerView: View {
     @FocusState private var isSearchFieldFocused: Bool
     
     // Nodig voor de .onAppear check om dubbel laden te voorkomen
-    @ObservedObject private var deepLinkManager = DeepLinkManager.shared
+    var deepLinkManager = DeepLinkManager.shared
     
     private let adUnitID = "ca-app-pub-3940256099942544/2934735716"
+
+    init(viewModel: TicketViewModel, ticketToShow: Binding<Ticket?>, showDeepLinkedTicket: Binding<Bool>) {
+        self.viewModel = viewModel
+        self._ticketToShow = ticketToShow
+        self._showDeepLinkedTicket = showDeepLinkedTicket
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -67,6 +75,11 @@ struct TicketListContainerView: View {
             }
             .sheet(isPresented: $isShowingSettings) {
                 SettingsView(onSave: { Task { await viewModel.refreshAllData() } })
+            }
+            .sheet(isPresented: $isShowingCreateTicket, onDismiss: {
+                Task { await viewModel.refreshAllData() }
+            }) {
+                TicketCreateView(ticketViewModel: viewModel)
             }
         }
     }
@@ -135,6 +148,11 @@ struct TicketListContainerView: View {
             ToolbarItem(placement: .navigationBarLeading) { settingsButton }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack {
+                    Button(action: { isShowingCreateTicket = true }) {
+                        Image(systemName: "plus.circle")
+                    }
+                    .toolbarButtonStyle()
+
                     Button(action: { withAnimation { isSearchActive = true; isSearchFieldFocused = true } }) {
                         Image(systemName: "magnifyingglass")
                     }

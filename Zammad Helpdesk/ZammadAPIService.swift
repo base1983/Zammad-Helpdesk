@@ -135,6 +135,16 @@ class ZammadAPIService {
         return try await fetchData(for: request)
     }
     
+    func fetchGroups() async throws -> [TicketGroup] {
+        let request = try createRequest(for: "groups")
+        return try await fetchData(for: request)
+    }
+
+    func fetchOrganizations() async throws -> [Organization] {
+        let request = try createRequest(for: "organizations")
+        return try await fetchData(for: request)
+    }
+    
     // ... (Keep your existing code above updateTicket) ...
 
         func updateTicket(id: Int, payload: TicketUpdatePayload) async throws -> Ticket {
@@ -146,6 +156,17 @@ class ZammadAPIService {
         func createArticle(payload: ArticleCreationPayload) async throws -> TicketArticle {
             var request = try createRequest(for: "ticket_articles", method: "POST")
             request.httpBody = try JSONEncoder().encode(payload)
+            return try await fetchData(for: request)
+        }
+
+        func createTicket(payload: TicketCreationPayload) async throws -> Ticket {
+            var request = try createRequest(for: "tickets", method: "POST")
+            
+            // Because 'internal' is a keyword, we need a custom encoder for the payload.
+            let encoder = JSONEncoder()
+            encoder.keyEncodingStrategy = .useDefaultKeys
+            
+            request.httpBody = try encoder.encode(payload)
             return try await fetchData(for: request)
         }
         
