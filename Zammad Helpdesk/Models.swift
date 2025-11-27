@@ -171,17 +171,17 @@ struct TicketUpdatePayload: Codable {
 }
 
 struct ArticleCreationPayload: Codable {
-
     var ticket_id: Int
-
     var body: String
-
-    var internal_note: Bool
-
     var to: String
-
     var subject: String
+    var isInternal: Bool
+    var type: String?
 
+    enum CodingKeys: String, CodingKey {
+        case ticket_id, body, to, subject, type
+        case isInternal = "internal"
+    }
 }
 
 

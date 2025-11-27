@@ -47,9 +47,9 @@
 "status_pending_close" = "En attente de fermeture";
 
 // TODO: Translate
-"priority_low" = "Low";
-"priority_normal" = "Normal";
-"priority_high" = "High";
+"priority_low" = "Basse";
+"priority_normal" = "Normale";
+"priority_high" = "Haute";
 "ticket_details_title" = "Détails du ticket";
 "loading_ticket_details" = "Chargement des détails du ticket...";
 "details_section_header" = "Détails";
@@ -114,24 +114,28 @@
 "webhook_guide_step3_body" = "Un « Déclencheur » est un événement dans Zammad qui doit activer le webhook. Pour de meilleurs résultats, nous vous recommandons de configurer des déclencheurs pour les événements suivants :\n\n- Ticket créé\n- Ticket mis à jour";
 "webhook_guide_step4_title" = "Étape 4 : Enregistrez et testez";
 "webhook_guide_step4_body" = "1. Cliquez sur « Enregistrer » ou « Soumettre ».\n2. Zammad enverra un « ping » à l'URL pour confirmer qu'elle fonctionne. Vous devriez voir un message de réussite dans Zammad.";
-
-// TODO: Translate
-"details" = "Details";
-"title" = "Title";
-"group" = "Group";
+"time_accounting" = "Comptabilisation du temps";
+"activity" = "Activité";
+"time_in_hours" = "Temps (ex: 1.5 pour 1h 30m)";
+"add_spent_time" = "Ajouter du temps passé";
+"activity_id" = "ID d'activité";
+"time_spent" = "Temps passé";
+"hours" = "heures";
+"details" = "Détails";
+"title" = "Titre";
+"group" = "Groupe";
 "type" = "Type";
 "classification" = "Classification";
 "tags" = "Tags";
-"new_ticket" = "New Ticket";
-"create" = "Create";
+"new_ticket" = "Nouveau Ticket";
+"create" = "Créer";
 "ok" = "OK";
-"select_customer" = "Select Customer";
-"please_fill_all_required_fields" = "Please fill all required fields.";
-"failed_to_create_ticket" = "Failed to create ticket";
-"search" = "Search";
+"select_customer" = "Sélectionner un client";
+"please_fill_all_required_fields" = "Veuillez remplir tous les champs obligatoires.";
+"failed_to_create_ticket" = "Échec de la création du ticket";
+"search" = "Rechercher";
 "article" = "Article";
-"loading_activities" = "Loading activities...";
-"no_activities_found_check_admin" = "No activities found. Please check your Zammad admin settings.";
-"select_activity" = "Select an activity";
-"configure_server_for_notifications" = "Configure your server to enable real-time notifications.";
-
+"loading_activities" = "Chargement des activités...";
+"no_activities_found_check_admin" = "Aucune activité trouvée. Veuillez vérifier les paramètres de votre administrateur Zammad.";
+"select_activity" = "Sélectionner une activité";
+"configure_server_for_notifications" = "Configurez votre serveur pour activer les notifications en temps réel.";

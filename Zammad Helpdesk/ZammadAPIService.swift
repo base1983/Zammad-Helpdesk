@@ -186,6 +186,23 @@ class ZammadAPIService {
             return try await fetchData(for: request)
         }
 
+        func fetchTimeAccountings(for ticketId: Int) async throws -> [TimeAccounting] {
+            let request = try createRequest(for: "time_accountings?ticket_id=\(ticketId)")
+            return try await fetchData(for: request)
+        }
+
+        func fetchTimeAccountingsGracefully(for ticketId: Int) async throws -> [TimeAccounting] {
+            do {
+                return try await fetchTimeAccountings(for: ticketId)
+            } catch APIError.serverError(let statusCode, _) where statusCode == 404 {
+                print("Time accountings endpoint not found (404). Returning empty list.")
+                return []
+            } catch {
+                // Re-throw other errors
+                throw error
+            }
+        }
+
         func fetchTimeAccountingTypesGracefully() async throws -> [TimeAccountingType] {
             do {
                 return try await fetchTimeAccountingTypes()

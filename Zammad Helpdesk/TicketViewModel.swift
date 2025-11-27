@@ -228,7 +228,7 @@ class TicketViewModel: ObservableObject {
     }
     
     func sendReply(for ticket: Ticket, with body: String, subject: String, recipient: String, articleToReplyTo: TicketArticle?) async throws {
-        let payload = ArticleCreationPayload(ticket_id: ticket.id, body: body, internal_note: false, to: recipient, subject: subject)
+        let payload = ArticleCreationPayload(ticket_id: ticket.id, body: body, to: recipient, subject: subject, isInternal: false, type: "email")
         _ = try await apiService.createArticle(payload: payload)
     }
     
@@ -250,7 +250,7 @@ class TicketViewModel: ObservableObject {
     }
     
     func addInternalNote(for ticket: Ticket, with body: String) async throws {
-        let payload = ArticleCreationPayload(ticket_id: ticket.id, body: body, internal_note: true, to: "", subject: ticket.title)
+        let payload = ArticleCreationPayload(ticket_id: ticket.id, body: body, to: "", subject: ticket.title, isInternal: true, type: "note")
         _ = try await apiService.createArticle(payload: payload)
     }
     
@@ -272,6 +272,10 @@ class TicketViewModel: ObservableObject {
             return "\(user.fullname) (\(orgName))"
         }
         return user.fullname
+    }
+    
+    func userEmail(for id: Int) -> String? {
+        return allUsers.first { $0.id == id }?.email
     }
     func organizationName(for id: Int?) -> String? {
         guard let id = id else { return nil }

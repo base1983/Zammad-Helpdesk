@@ -6,6 +6,7 @@ struct TicketDetailView: View {
     
     @State private var ticket: Ticket?
     @State private var articles: [TicketArticle] = []
+    @State private var timeAccountings: [TimeAccounting] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
     
@@ -143,6 +144,10 @@ struct TicketDetailView: View {
                     detailRow(label: "owner".localized(), value: viewModel.userName(for: ticket.owner_id))
                 }
                 
+                if viewModel.isTimeAccountingEnabled {
+                    detailRow(label: "time_spent".localized(), value: totalTimeSpent)
+                }
+                
                 detailRow(label: "created_at".localized(), value: ticket.created_at.formatted())
             }
             
@@ -161,6 +166,11 @@ struct TicketDetailView: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    private var totalTimeSpent: String {
+        let total = timeAccountings.reduce(0.0) { $0 + (Double($1.time_unit) ?? 0.0) }
+        return "\(total) \("hours".localized())"
     }
 
     private func detailRow(label: String, value: String) -> some View {
@@ -221,8 +231,15 @@ struct TicketDetailView: View {
         if ticket == nil { isLoading = true }
         self.errorMessage = nil
         do {
-            self.ticket = try await ZammadAPIService.shared.fetchTicket(id: ticketID)
-            self.articles = try await ZammadAPIService.shared.fetchArticles(for: ticketID)
+            async let ticketTask = ZammadAPIService.shared.fetchTicket(id: ticketID)
+            async let articlesTask = ZammadAPIService.shared.fetchArticles(for: ticketID)
+            async let timeAccountingsTask = ZammadAPIService.shared.fetchTimeAccountingsGracefully(for: ticketID)
+            
+            let (ticketResult, articlesResult, timeAccountingsResult) = await (try ticketTask, try articlesTask, try timeAccountingsTask)
+            
+            self.ticket = ticketResult
+            self.articles = articlesResult
+            self.timeAccountings = timeAccountingsResult
         } catch {
             self.errorMessage = error.localizedDescription
         }

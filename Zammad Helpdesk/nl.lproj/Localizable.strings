@@ -45,11 +45,10 @@
 "status_closed" = "Gesloten";
 "status_merged" = "Samengevoegd";
 "status_pending_close" = "Wacht op sluiting";
-
-// TODO: Translate
-"priority_low" = "Low";
-"priority_normal" = "Normal";
-"priority_high" = "High";
+/* TODO: Translate */
+"priority_low" = "Laag";
+"priority_normal" = "Normaal";
+"priority_high" = "Hoog";
 "ticket_details_title" = "Ticketdetails";
 "loading_ticket_details" = "Ticketdetails laden...";
 "details_section_header" = "Details";
@@ -109,13 +108,19 @@
 "webhook_guide_step1_title" = "Stap 1: Navigeer naar Webhooks in Zammad";
 "webhook_guide_step1_body" = "1. Log in op uw Zammad-instantie als beheerder.\n2. Navigeer naar Instellingen (het tandwielpictogram).\n3. Zoek en klik op \"Webhooks\" in het linkermenu.";
 "webhook_guide_step2_title" = "Stap 2: Maak een nieuwe webhook";
-"webhook_guide_step2_body" = "1. Klik op de knop \"Nieuwe webhook toevoegen\".\n2. Geef de webhook een duidelijke naam, bijvoorbeeld \"iOS App Meldingen\".\n3. Plak in het veld \"URL\" de unieke, persoonlijke URL die u zojuist uit de app hebt gekopieerd.\n4. Zorg ervoor dat \"Actief\" is aangevinkt.";
+"webhook_guide_step2_body" = "1. Klik op de knop \"Nieuwe webhook toevoegen\".\n2. Geef de webhook een duidelijke naam, bijvoorbeeld \"iOS App Meldingen\".\n3. Plak in het veld \"URL\" de unieke, persoonlijke URL die u zojuit uit de app hebt gekopieerd.\n4. Zorg ervoor dat \"Actief\" is aangevinkt.";
 "webhook_guide_step3_title" = "Stap 3: Configureer triggers";
 "webhook_guide_step3_body" = "Een \"Trigger\" is een gebeurtenis in Zammad die de webhook moet activeren. Voor de beste resultaten raden we aan om triggers in te stellen voor de volgende gebeurtenissen:\n\n- Ticket aangemaakt\n- Ticket bijgewerkt";
 "webhook_guide_step4_title" = "Stap 4: Opslaan en testen";
 "webhook_guide_step4_body" = "1. Klik op \"Opslaan\" of \"Verzenden\".\n2. Zammad stuurt een \"ping\" naar de URL om te bevestigen dat deze werkt. U zou een succesbericht moeten zien in Zammad.";
-
-// TODO: Translate
+"time_accounting" = "Tijdregistratie";
+"activity" = "Activiteit";
+"time_in_hours" = "Tijd (bijv. 1,5 voor 1u 30m)";
+"add_spent_time" = "Tijd toevoegen";
+"activity_id" = "Activiteit ID";
+"time_spent" = "Bestede tijd";
+"hours" = "uren";
+/* TODO: Translate */
 "details" = "Details";
 "title" = "Title";
 "group" = "Group";
@@ -134,4 +139,3 @@
 "no_activities_found_check_admin" = "No activities found. Please check your Zammad admin settings.";
 "select_activity" = "Select an activity";
 "configure_server_for_notifications" = "Configure your server to enable real-time notifications.";
-

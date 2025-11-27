@@ -52,7 +52,11 @@ struct TicketReplyView: View {
                 if isInternalNote {
                     try await viewModel.addInternalNote(for: ticket, with: replyBody)
                 } else {
-                    let recipient = viewModel.userName(for: ticket.customer_id)
+                    guard let recipient = viewModel.userEmail(for: ticket.customer_id) else {
+                        print("Failed to send reply: Customer email not found.")
+                        return
+                    }
+                    print("Sending reply to: \(recipient)")
                     try await viewModel.sendReply(for: ticket, with: replyBody, subject: ticket.title, recipient: recipient, articleToReplyTo: articleToReplyTo)
                 }
                 dismiss()

@@ -45,11 +45,9 @@
 "status_closed" = "Geschlossen";
 "status_merged" = "Zusammengeführt";
 "status_pending_close" = "Wartet auf Schließung";
-
-// TODO: Translate
-"priority_low" = "Low";
+"priority_low" = "Niedrig";
 "priority_normal" = "Normal";
-"priority_high" = "High";
+"priority_high" = "Hoch";
 "ticket_details_title" = "Ticketdetails";
 "loading_ticket_details" = "Ticketdetails werden geladen...";
 "details_section_header" = "Details";
@@ -107,15 +105,20 @@
 "webhook_guide_title" = "Webhook-Einrichtungsanleitung";
 "webhook_guide_intro" = "Befolgen Sie diese Schritte, um Ihre Zammad-Installation so zu konfigurieren, dass sie bei einer Ticketaktualisierung Echtzeitsignale an die App sendet.";
 "webhook_guide_step1_title" = "Schritt 1: Navigieren Sie zu Webhooks in Zammad";
-"webhook_guide_step1_body" = "1. Melden Sie sich als Administrator bei Ihrer Zammad-Instanz an.\n2. Navigieren Sie zu Einstellungen (das Zahnradsymbol).\n3. Suchen und klicken Sie im linken Menü auf „Webhooks“.";
+"webhook_guide_step1_body" = "1. Melden Sie sich als Administrator bei Ihrer Zammad-Instanz an.\n2. Navigieren Sie zu Einstellungen (das Zahnradsymbol).\n3. Suchen und klicken Sie im linken Menü auf „Webhooks“. ";
 "webhook_guide_step2_title" = "Schritt 2: Neuen Webhook erstellen";
 "webhook_guide_step2_body" = "1. Klicken Sie auf die Schaltfläche „Neuen Webhook hinzufügen“.\n2. Geben Sie dem Webhook einen klaren Namen, z. B. „iOS-App-Benachrichtigungen“.\n3. Fügen Sie in das Feld „URL“ die eindeutige, persönliche URL ein, die Sie gerade aus der App kopiert haben.\n4. Stellen Sie sicher, dass „Aktiv“ aktiviert ist.";
 "webhook_guide_step3_title" = "Schritt 3: Trigger konfigurieren";
 "webhook_guide_step3_body" = "Ein „Trigger“ ist ein Ereignis in Zammad, das den Webhook aktivieren soll. Für die besten Ergebnisse empfehlen wir, Trigger für die folgenden Ereignisse einzurichten:\n\n- Ticket erstellt\n- Ticket aktualisiert";
 "webhook_guide_step4_title" = "Schritt 4: Speichern und Testen";
 "webhook_guide_step4_body" = "1. Klicken Sie auf „Speichern“ oder „Senden“.\n2. Zammad sendet ein „Ping“ an die URL, um zu bestätigen, dass sie funktioniert. Sie sollten eine Erfolgsmeldung in Zammad sehen.";
-
-// TODO: Translate
+"time_accounting" = "Zeiterfassung";
+"activity" = "Aktivität";
+"time_in_hours" = "Zeit (z.B. 1,5 für 1h 30m)";
+"add_spent_time" = "Zeitaufwand hinzufügen";
+"activity_id" = "Aktivitäts-ID";
+"time_spent" = "Aufgewendete Zeit";
+"hours" = "Stunden";
 "details" = "Details";
 "title" = "Title";
 "group" = "Group";
@@ -134,4 +137,3 @@
 "no_activities_found_check_admin" = "No activities found. Please check your Zammad admin settings.";
 "select_activity" = "Select an activity";
 "configure_server_for_notifications" = "Configure your server to enable real-time notifications.";
-

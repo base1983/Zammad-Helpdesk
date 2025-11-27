@@ -141,6 +141,8 @@
 "time_in_hours" = "Time (e.g. 1.5 for 1h 30m)";
 "add_spent_time" = "Add Spent Time";
 "activity_id" = "Activity ID";
+"time_spent" = "Time Spent";
+"hours" = "hours";
 
 // MARK: - Create Ticket
 "details" = "Details";
