@@ -7,10 +7,16 @@ struct TicketRowView: View {
     let priorityName: String
     let statusColor: Color
     let priorityColor: Color
+    @ObservedObject var viewModel: TicketViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
+                if ReadStatusManager.shared.isUnread(ticket: ticket, currentUser: viewModel.currentUser) {
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 8, height: 8)
+                }
                 Text(ticket.title)
                     .font(.headline)
                     .lineLimit(1)

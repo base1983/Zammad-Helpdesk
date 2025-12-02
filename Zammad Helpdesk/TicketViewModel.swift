@@ -74,39 +74,42 @@ class TicketViewModel: ObservableObject {
     }
 
     private func loadData(filter: FilterType, isFullRefresh: Bool) async {
-        loadingTask?.cancel()
-        
-        let task = Task {
-            if isFullRefresh || currentUser == nil { self.isLoading = true }
-            self.activeFilter = filter
+            loadingTask?.cancel()
             
-            do {
-                if isFullRefresh || currentUser == nil {
-                    try await loadMetadata()
-                }
-                try Task.checkCancellation()
+            let task = Task {
+                if isFullRefresh || currentUser == nil { self.isLoading = true }
+                self.activeFilter = filter
                 
-                let tickets = try await fetchTickets(for: filter)
-                try Task.checkCancellation()
+                do {
+                    if isFullRefresh || currentUser == nil {
+                        try await loadMetadata()
+                    }
+                    try Task.checkCancellation()
+                    
+                    let tickets = try await fetchTickets(for: filter)
+                    try Task.checkCancellation()
 
-                self.currentTickets = tickets
-                self.errorMessage = nil
+                    self.currentTickets = tickets
+                    self.errorMessage = nil
+                    
+                    // ADD THIS LINE HERE:
+                    self.updateApplicationBadge()
+                    
+                } catch {
+                    if !(error is CancellationError) {
+                        print("Failed to load data: \(error)")
+                        self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    }
+                }
                 
-            } catch {
-                if !(error is CancellationError) {
-                    print("Failed to load data: \(error)")
-                    self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                if !Task.isCancelled {
+                    self.isLoading = false
                 }
             }
-            
-            if !Task.isCancelled {
-                self.isLoading = false
-            }
+            self.loadingTask = task
+            await task.value
         }
-        self.loadingTask = task
-        await task.value
-    }
-
+    
     private func loadMetadata() async throws {
         async let data = (
             states: apiService.fetchTicketStates(),
@@ -263,6 +266,20 @@ class TicketViewModel: ObservableObject {
         await refreshAllData()
     }
 
+    // MARK: - Badge Logic
+        func updateApplicationBadge() {
+            Task { @MainActor in
+                // Filter the CURRENT list to find unread items
+                let unreadCount = self.currentTickets.filter { ticket in
+                    ReadStatusManager.shared.isUnread(ticket: ticket, currentUser: self.currentUser)
+                }.count
+                
+                // Update the iOS App Icon Badge
+                try? await UNUserNotificationCenter.current().setBadgeCount(unreadCount)
+                print("DEBUG: Updated App Badge to \(unreadCount)")
+            }
+        }
+    
     // MARK: - Helper & Formatting Functions
     func stateName(for id: Int) -> String { ticketStates.first { $0.id == id }?.name ?? "unknown".localized() }
     func priorityName(for id: Int) -> String { ticketPriorities.first { $0.id == id }?.name ?? "unknown".localized() }

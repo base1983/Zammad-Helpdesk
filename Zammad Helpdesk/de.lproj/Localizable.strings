@@ -137,3 +137,5 @@
 "no_activities_found_check_admin" = "No activities found. Please check your Zammad admin settings.";
 "select_activity" = "Select an activity";
 "configure_server_for_notifications" = "Configure your server to enable real-time notifications.";
+"mark_read" = "Gelesen";
+"mark_unread" = "Ungelesen";

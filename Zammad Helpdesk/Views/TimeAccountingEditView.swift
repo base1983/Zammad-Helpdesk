@@ -57,7 +57,7 @@ struct TimeAccountingEditView: View {
             .onAppear {
                 setInitialType()
             }
-            .onChange(of: viewModel.timeAccountingTypes) { _ in
+            .onChange(of: viewModel.timeAccountingTypes) { _, _ in
                 setInitialType()
             }
         }

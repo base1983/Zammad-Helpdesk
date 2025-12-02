@@ -50,6 +50,8 @@
 "no_search_results" = "No results found";
 "open_settings" = "Open Settings";
 "new_tickets_notification_title" = "%d new tickets";
+"mark_read" = "Read";
+"mark_unread" = "Unread";
 
 // MARK: - Ticket Statuses
 "status_new" = "New";

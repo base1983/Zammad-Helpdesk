@@ -6,7 +6,8 @@ struct TicketListContainerView: View {
     
     @ObservedObject var viewModel: TicketViewModel
     
-    // 1. Accepteert de bindings van ContentView
+    // 1. NEW: Observer to update UI immediately when read status changes
+    @ObservedObject private var readStatusManager = ReadStatusManager.shared
     
     @State private var isShowingCreateTicket = false
     @State private var isShowingSettings = false
@@ -16,7 +17,6 @@ struct TicketListContainerView: View {
     @State private var isSearchActive = false
     @FocusState private var isSearchFieldFocused: Bool
     
-    // Nodig voor de .onAppear check om dubbel laden te voorkomen
     var deepLinkManager = DeepLinkManager.shared
     
     private let adUnitID = "ca-app-pub-3940256099942544/2934735716"
@@ -59,12 +59,13 @@ struct TicketListContainerView: View {
                 
                 if !areAdsRemoved {
                     AdBannerView(adUnitID: adUnitID, width: geometry.size.width)
-                        .frame(height: 50) // Keep a fixed height for the container
+                        .frame(height: 50)
                 }
             }
             .tint(.accentColor)
             .onAppear {
-                if deepLinkManager.pendingTicketID == nil && viewModel.currentUser == nil {
+                // 2. UPDATED: Always refresh data when view appears (e.g. returning from detail view)
+                if deepLinkManager.pendingTicketID == nil {
                     Task { await viewModel.refreshAllData() }
                 }
             }
@@ -84,31 +85,59 @@ struct TicketListContainerView: View {
         }
     }
     
+    // MARK: - List View
     private var ticketList: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                ForEach(viewModel.displayTickets) { ticket in
-                    // Deze NavigationLink(value: ticket) vereist de .navigationDestination(for: Ticket.self)
-                    NavigationLink(value: ticket) {
-                        TicketRowView(
-                            ticket: ticket,
-                            customerName: viewModel.userName(for: ticket.customer_id),
-                            stateName: viewModel.localizedStatusName(for: viewModel.stateName(for: ticket.state_id)),
-                            priorityName: viewModel.priorityName(for: ticket.priority_id),
-                            statusColor: viewModel.colorForStatus(named: viewModel.stateName(for: ticket.state_id)),
-                            priorityColor: viewModel.colorForPriority(named: viewModel.priorityName(for: ticket.priority_id))
-                        )
-                        .foregroundColor(.primary)
+        // Using List enables native Swipe Actions
+        List {
+            ForEach(viewModel.displayTickets) { ticket in
+                NavigationLink(value: ticket) {
+                    TicketRowView(
+                        ticket: ticket,
+                        customerName: viewModel.userName(for: ticket.customer_id),
+                        stateName: viewModel.localizedStatusName(for: viewModel.stateName(for: ticket.state_id)),
+                        priorityName: viewModel.priorityName(for: ticket.priority_id),
+                        statusColor: viewModel.colorForStatus(named: viewModel.stateName(for: ticket.state_id)),
+                        priorityColor: viewModel.colorForPriority(named: viewModel.priorityName(for: ticket.priority_id)),
+                        viewModel: viewModel
+                    )
+                }
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                
+                // Swipe Actions Logic
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    if readStatusManager.isUnread(ticket: ticket, currentUser: viewModel.currentUser) {
+                        Button(action: {
+                            readStatusManager.markAsRead(ticket: ticket)
+                            Task {
+                                await viewModel.refreshAllData()
+                                viewModel.updateApplicationBadge()
+                            }
+                        }) {
+                            Label("mark_read".localized(), systemImage: "envelope.open.fill")
+                        }
+                        .tint(.blue)
+                    } else {
+                        Button(action: {
+                            readStatusManager.markAsUnread(ticket: ticket)
+                            Task {
+                                await viewModel.refreshAllData()
+                                viewModel.updateApplicationBadge()
+                            }
+                        }) {
+                            Label("mark_unread".localized(), systemImage: "envelope.fill")
+                        }
+                        .tint(.orange)
                     }
                 }
             }
-            .padding()
         }
+        .listStyle(.plain)
         .scrollContentBackground(.hidden)
     }
     
-    // De 'handleDeepLink'-functie is hier correct verwijderd (wordt nu door ContentView gedaan)
-    
+    // MARK: - Toolbar
     @ToolbarContentBuilder
     private func navigationToolbar(width: CGFloat) -> some ToolbarContent {
         if isSearchActive {
@@ -164,6 +193,7 @@ struct TicketListContainerView: View {
         }
     }
     
+    // MARK: - Overlays & Components
     @ViewBuilder
     private var statusOverlay: some View {
         if viewModel.isLoading && viewModel.searchedTickets == nil {
