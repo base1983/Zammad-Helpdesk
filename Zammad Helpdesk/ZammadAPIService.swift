@@ -126,8 +126,52 @@ class ZammadAPIService {
     }
     
     func fetchAllUsers() async throws -> [User] {
-        let request = try createRequest(for: "users")
-        return try await fetchData(for: request)
+        var allUsers: [User] = []
+        var currentPage = 1
+        var hasMorePages = true
+        let perPage = 100
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
+        while hasMorePages {
+            let endpoint = "users?page=\(currentPage)&per_page=\(perPage)&expand=true"
+            let request = try createRequest(for: endpoint)
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+
+            if httpResponse.statusCode == 401 { throw APIError.authenticationFailed }
+            
+            guard (200...299).contains(httpResponse.statusCode) else {
+                let errorBody = String(data: data, encoding: .utf8)
+                throw APIError.serverError(statusCode: httpResponse.statusCode, message: errorBody)
+            }
+            
+            do {
+                let users = try decoder.decode([User].self, from: data)
+                allUsers.append(contentsOf: users)
+                print("Fetched page \(currentPage) of users, got \(users.count) users. Total users so far: \(allUsers.count)")
+
+                if users.count < perPage {
+                    hasMorePages = false
+                } else {
+                    currentPage += 1
+                }
+            } catch {
+                print("JSON Decoding Error for [User]: \(error)")
+                if let decodingError = error as? DecodingError {
+                    print("Decoding Error Details: \(decodingError)")
+                }
+                throw APIError.decodingError
+            }
+        }
+        
+        print("Finished fetching all users. Total: \(allUsers.count)")
+        return allUsers
     }
     
     func fetchRoles() async throws -> [Role] {
@@ -141,8 +185,52 @@ class ZammadAPIService {
     }
 
     func fetchOrganizations() async throws -> [Organization] {
-        let request = try createRequest(for: "organizations")
-        return try await fetchData(for: request)
+        var allOrganizations: [Organization] = []
+        var currentPage = 1
+        var hasMorePages = true
+        let perPage = 100
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        while hasMorePages {
+            let endpoint = "organizations?page=\(currentPage)&per_page=\(perPage)"
+            let request = try createRequest(for: endpoint)
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+
+            if httpResponse.statusCode == 401 { throw APIError.authenticationFailed }
+
+            guard (200...299).contains(httpResponse.statusCode) else {
+                let errorBody = String(data: data, encoding: .utf8)
+                throw APIError.serverError(statusCode: httpResponse.statusCode, message: errorBody)
+            }
+
+            do {
+                let organizations = try decoder.decode([Organization].self, from: data)
+                allOrganizations.append(contentsOf: organizations)
+                print("Fetched page \(currentPage) of organizations, got \(organizations.count) organizations. Total organizations so far: \(allOrganizations.count)")
+
+                if organizations.count < perPage {
+                    hasMorePages = false
+                } else {
+                    currentPage += 1
+                }
+            } catch {
+                print("JSON Decoding Error for [Organization]: \(error)")
+                if let decodingError = error as? DecodingError {
+                    print("Decoding Error Details: \(decodingError)")
+                }
+                throw APIError.decodingError
+            }
+        }
+        
+        print("Finished fetching all organizations. Total: \(allOrganizations.count)")
+        return allOrganizations
     }
     
     // ... (Keep your existing code above updateTicket) ...
