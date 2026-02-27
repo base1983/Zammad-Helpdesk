@@ -36,6 +36,8 @@ struct SettingsView: View {
                 // 5. Abonnementen
                 InAppPurchaseView()
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
             .navigationTitle("settings".localized())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

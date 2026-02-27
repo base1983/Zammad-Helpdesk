@@ -18,6 +18,11 @@ struct TicketDetailView: View {
     @State private var showPendingTimePicker = false
     @State private var pendingTime = Date()
     
+    // Programmatic navigation state to fix VStack List row issues
+    @State private var isEditingStatus = false
+    @State private var isEditingPriority = false
+    @State private var isEditingOwner = false
+    
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
@@ -86,70 +91,118 @@ struct TicketDetailView: View {
         .sheet(isPresented: $showPendingTimePicker) {
             pendingTimePickerView
         }
+        .navigationDestination(isPresented: $isEditingStatus) {
+            if let ticketBinding = Binding($ticket) {
+                PickerEditView(
+                    title: "status".localized(),
+                    selection: ticketBinding.state_id,
+                    items: viewModel.ticketStates,
+                    displayName: { state in viewModel.localizedStatusName(for: state.name) },
+                    onSave: { await saveChanges() }
+                )
+            }
+        }
+        .navigationDestination(isPresented: $isEditingPriority) {
+            if let ticketBinding = Binding($ticket) {
+                PickerEditView(
+                    title: "priority".localized(),
+                    selection: ticketBinding.priority_id,
+                    items: viewModel.ticketPriorities,
+                    displayName: { $0.name },
+                    onSave: { await saveChanges() }
+                )
+            }
+        }
+        .navigationDestination(isPresented: $isEditingOwner) {
+            if let ticketBinding = Binding($ticket) {
+                let owners = [User(id: 1, organization_id: nil, login: "", firstname: "unassigned".localized(), lastname: "", email: "", web: nil, phone: nil, fax: nil, mobile: nil, department: nil, street: nil, zip: nil, city: nil, country: nil, address: nil, vip: false, verified: false, active: true, note: nil, last_login: nil, source: nil, login_failed: 0, out_of_office: false, out_of_office_start_at: nil, out_of_office_end_at: nil, out_of_office_replacement_id: nil, preferences: UserPreferences(), role_ids: nil, organization_ids: nil, authorization_ids: nil, group_ids: nil, updated_by_id: 0, created_by_id: 0, created_at: Date(), updated_at: Date())] + viewModel.agentUsers
+                PickerEditView(
+                    title: "owner".localized(),
+                    selection: ticketBinding.owner_id,
+                    items: owners,
+                    displayName: { $0.fullname },
+                    onSave: { await saveChanges() }
+                )
+            }
+        }
     }
     
     @ViewBuilder
         private func ticketContent(_ ticket: Ticket) -> some View {
             List {
                 Section(header: Text("details_section_header".localized()).font(.headline)) {
-                    detailRow(label: "ticket_number".localized(), value: "#\(ticket.number)")
-                    Button(action: {
-                        optionalCustomerId = ticket.customer_id
-                        isShowingCustomerSearch = true
-                    }) {
-                        detailRow(label: "customer".localized(), value: viewModel.userName(for: ticket.customer_id))
-                    }
-                    .buttonStyle(.plain)
-                    
-                    NavigationLink {
-                        if let ticketBinding = Binding($ticket) {
-                            PickerEditView(
-                                title: "status".localized(),
-                                selection: ticketBinding.state_id,
-                                items: viewModel.ticketStates,
-                                displayName: { state in viewModel.localizedStatusName(for: state.name) },
-                                onSave: { await saveChanges() }
-                            )
+                    VStack(spacing: 0) {
+                        detailRow(label: "ticket_number".localized(), value: "#\(ticket.number)")
+                            .padding(.vertical, 10)
+                        
+                        Divider()
+                        
+                        Button(action: {
+                            optionalCustomerId = ticket.customer_id
+                            isShowingCustomerSearch = true
+                        }) {
+                            HStack {
+                                detailRow(label: "customer".localized(), value: viewModel.userName(for: ticket.customer_id))
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
-                    } label: {
-                        detailRow(label: "status".localized(), value: viewModel.localizedStatusName(for: viewModel.stateName(for: ticket.state_id)))
-                    }
-                    
-                    NavigationLink {
-                        if let ticketBinding = Binding($ticket) {
-                            PickerEditView(
-                                title: "priority".localized(),
-                                selection: ticketBinding.priority_id,
-                                items: viewModel.ticketPriorities,
-                                displayName: { $0.name },
-                                onSave: { await saveChanges() }
-                            )
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 10)
+                        
+                        Divider()
+                        
+                        Button(action: { isEditingStatus = true }) {
+                            HStack {
+                                detailRow(label: "status".localized(), value: viewModel.localizedStatusName(for: viewModel.stateName(for: ticket.state_id)))
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
-                    } label: {
-                        detailRow(label: "priority".localized(), value: viewModel.priorityName(for: ticket.priority_id))
-                    }
-                    
-                    NavigationLink {
-                        if let ticketBinding = Binding($ticket) {
-                            let owners = [User(id: 1, organization_id: nil, login: "", firstname: "unassigned".localized(), lastname: "", email: "", web: nil, phone: nil, fax: nil, mobile: nil, department: nil, street: nil, zip: nil, city: nil, country: nil, address: nil, vip: false, verified: false, active: true, note: nil, last_login: nil, source: nil, login_failed: 0, out_of_office: false, out_of_office_start_at: nil, out_of_office_end_at: nil, out_of_office_replacement_id: nil, preferences: UserPreferences(), role_ids: nil, organization_ids: nil, authorization_ids: nil, group_ids: nil, updated_by_id: 0, created_by_id: 0, created_at: Date(), updated_at: Date())] + viewModel.agentUsers
-                            PickerEditView(
-                                title: "owner".localized(),
-                                selection: ticketBinding.owner_id,
-                                items: owners,
-                                displayName: { $0.fullname },
-                                onSave: { await saveChanges() }
-                            )
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 10)
+                        
+                        Divider()
+                        
+                        Button(action: { isEditingPriority = true }) {
+                            HStack {
+                                detailRow(label: "priority".localized(), value: viewModel.priorityName(for: ticket.priority_id))
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
-                    } label: {
-                        detailRow(label: "owner".localized(), value: viewModel.userName(for: ticket.owner_id))
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 10)
+                        
+                        Divider()
+                        
+                        Button(action: { isEditingOwner = true }) {
+                            HStack {
+                                detailRow(label: "owner".localized(), value: viewModel.userName(for: ticket.owner_id))
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 10)
+                        
+                        if viewModel.isTimeAccountingEnabled {
+                            Divider()
+                            detailRow(label: "time_spent".localized(), value: totalTimeSpent)
+                                .padding(.vertical, 10)
+                        }
+                        
+                        Divider()
+                        
+                        detailRow(label: "created_at".localized(), value: ticket.created_at.formatted())
+                            .padding(.vertical, 10)
                     }
-                    
-                    if viewModel.isTimeAccountingEnabled {
-                        detailRow(label: "time_spent".localized(), value: totalTimeSpent)
-                    }
-                    
-                    detailRow(label: "created_at".localized(), value: ticket.created_at.formatted())
                 }
+                .listRowBackground(VisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial)))
                 
                 Section(header: Text("communication_history".localized()).font(.headline)) {
                     ForEach(articles.sorted(by: { $0.created_at > $1.created_at })) { article in
@@ -162,11 +215,16 @@ struct TicketDetailView: View {
                             Text(article.body.strippingHTML()).padding(.top, 4)
                         }
                         .padding(.vertical, 8)
+                        .listRowBackground(VisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial)))
                     }
                 }
             }
             .listStyle(.insetGrouped)
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background(ClearBackgroundView())
             .onAppear {
+                UITableView.appearance().backgroundColor = .clear
                 // 1. Mark as read locally
                 ReadStatusManager.shared.markAsRead(ticket: ticket)
                 // 2. Update the badge immediately

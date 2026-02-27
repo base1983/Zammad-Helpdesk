@@ -19,13 +19,25 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            // De basis app
+            // 1. The Global Background Image
+            GeometryReader { geo in
+                Image("Background")
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+            }
+            .ignoresSafeArea()
+
+            // 2. De basis app
             if isSetupComplete {
                 mainAppView
                     .preferredColorScheme(getPreferredColorScheme())
+                    .background(ClearBackgroundView())
             } else {
                 setupFlowView
                     .preferredColorScheme(.dark)
+                    .background(ClearBackgroundView())
             }
             
             // NIEUW: Een laad-overlay die verschijnt als we een ticket aan het openen zijn
@@ -62,6 +74,7 @@ struct ContentView: View {
                     ticketToShow: $ticketToShow,
                     showDeepLinkedTicket: $showDeepLinkedTicket
                 )
+                .background(ClearBackgroundView())
                 // 2. DE OPLOSSING: Open het ticket direct hier als een pop-up (sheet)
                                 .sheet(isPresented: $showDeepLinkedTicket) {
                                     // CRUCIAAL: We wikkelen de view in een NavigationView.
@@ -75,6 +88,7 @@ struct ContentView: View {
                                             ProgressView("Ticket laden...")
                                         }
                                     }
+                                    .background(ClearBackgroundView())
                                 }
             } else {
                 LockedView(onUnlock: { authManager.authenticate() })
@@ -82,6 +96,25 @@ struct ContentView: View {
         }
         .onAppear {
             if isSetupComplete { authManager.authenticate() }
+            
+            // Aggressive Window transparency fix
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .forEach { windowScene in
+                    windowScene.windows.forEach { window in
+                        window.backgroundColor = .clear
+                    }
+                }
+            
+            // Global fix for List and NavigationStack transparency
+            UITableView.appearance().backgroundColor = .clear
+            UITableViewCell.appearance().backgroundColor = .clear
+            UICollectionView.appearance().backgroundColor = .clear
+            
+            // Target the navigation container area specifically
+            UINavigationBar.appearance().backgroundColor = .clear
+            UINavigationBar.appearance().setBackgroundImage(UIImage(), for: .default)
+            UINavigationBar.appearance().shadowImage = UIImage()
         }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {

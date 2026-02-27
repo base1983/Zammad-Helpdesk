@@ -26,7 +26,14 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         
         application.registerForRemoteNotifications()
         
-        // 3. Achtergrondtaak registreren
+        // 4. Force windows to be transparent to avoid black background flicker
+        DispatchQueue.main.async {
+            if let window = UIApplication.shared.windows.first {
+                window.backgroundColor = .clear
+            }
+        }
+        
+        // 5. Achtergrondtaak registreren
         BGTaskScheduler.shared.register(forTaskWithIdentifier: backgroundTaskID, using: nil) { task in
             self.handleAppRefresh(task: task as! BGAppRefreshTask)
         }

@@ -53,8 +53,9 @@ struct TicketRowView: View {
             }
         }
         .padding()
-        .background(.thinMaterial)
+        .background(.ultraThinMaterial)
         .cornerRadius(12)
+        .background(Color.clear)
     }
 }
 

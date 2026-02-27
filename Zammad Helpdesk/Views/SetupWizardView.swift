@@ -25,7 +25,7 @@ struct SetupWizardView: View {
             
             pageControl
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(.ultraThinMaterial, ignoresSafeAreaEdges: .all)
         .foregroundColor(.white)
     }
     
