@@ -8,7 +8,8 @@ struct SetupWizardView: View {
     @State private var enableBiometrics = false
     @State private var enableNotifications = false
     
-    @AppStorage("is_setup_complete") private var isSetupComplete: Bool = false
+    private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
+    @AppStorage("is_setup_complete", store: Self.groupDefaults) private var isSetupComplete: Bool = false
     
     @State private var isTestingConnection = false
     @State private var connectionTestResult: String?
@@ -126,7 +127,10 @@ struct SetupWizardView: View {
                 NotificationSetupManager.shared.enableNotifications()
             }
             
-            // 5. Klaar!
+            // 5. Send credentials to Apple Watch
+            WatchConnectivityManager.shared.sendCredentialsToWatch()
+            
+            // 6. Klaar!
             isSetupComplete = true
         }
 }

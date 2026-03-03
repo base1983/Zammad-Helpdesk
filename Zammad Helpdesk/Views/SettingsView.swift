@@ -5,13 +5,15 @@ struct SettingsView: View {
     let onSave: () -> Void
     @Environment(\.dismiss) var dismiss
     
+    private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
+    
     // --- App Settings (via AppStorage voor automatische persistentie) ---
-    @AppStorage("is_biometric_lock_enabled") private var isLockEnabled: Bool = false
-    @AppStorage("color_scheme_option") private var colorSchemeOption: String = "system"
+    @AppStorage("is_biometric_lock_enabled", store: Self.groupDefaults) private var isLockEnabled: Bool = false
+    @AppStorage("color_scheme_option", store: Self.groupDefaults) private var colorSchemeOption: String = "system"
     
     // --- Server Config ---
-    @AppStorage("zammad_server_url") private var serverURL: String = ""
-    @AppStorage("zammad_api_token") private var apiToken: String = ""
+    @AppStorage("zammad_server_url", store: Self.groupDefaults) private var serverURL: String = ""
+    @AppStorage("zammad_api_token", store: Self.groupDefaults) private var apiToken: String = ""
     
     // --- Lokale State ---
     @State private var testStatus: String?
@@ -133,6 +135,9 @@ struct SettingsView: View {
         SettingsManager.shared.save(serverURL: serverURL)
         SettingsManager.shared.save(token: apiToken)
         SettingsManager.shared.save(isLockEnabled: isLockEnabled)
+        
+        // Send updated credentials to Apple Watch
+        WatchConnectivityManager.shared.sendCredentialsToWatch()
         
         onSave()
         dismiss()
@@ -258,7 +263,8 @@ struct NotificationSettingsSection: View {
 // MARK: - Component: In-App Purchase View
 private struct InAppPurchaseView: View {
     @StateObject private var storeManager = StoreManager()
-    @AppStorage("are_ads_removed") private var areAdsRemoved: Bool = false
+    private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
+    @AppStorage("are_ads_removed", store: Self.groupDefaults) private var areAdsRemoved: Bool = false
     
     var body: some View {
         Section(header: Text("in_app_purchases".localized())) {

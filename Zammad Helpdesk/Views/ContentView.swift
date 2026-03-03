@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct ContentView: View {
-    @AppStorage("is_setup_complete") private var isSetupComplete: Bool = false
-    @AppStorage("color_scheme_option") private var colorSchemeOption: String = SettingsManager.shared.loadTheme().rawValue
+    private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
+    @AppStorage("is_setup_complete", store: Self.groupDefaults) private var isSetupComplete: Bool = false
+    @AppStorage("color_scheme_option", store: Self.groupDefaults) private var colorSchemeOption: String = SettingsManager.shared.loadTheme().rawValue
     
     @State private var showAnimation = true
     
@@ -13,8 +14,6 @@ struct ContentView: View {
     // Navigatie status
     @State private var ticketToShow: Ticket? = nil
     @State private var showDeepLinkedTicket = false
-    
-    // NIEUW: Om te laten zien dat we bezig zijn met openen
     @State private var isProcessingDeepLink = false
     
     var body: some View {
@@ -40,7 +39,7 @@ struct ContentView: View {
                     .background(ClearBackgroundView())
             }
             
-            // NIEUW: Een laad-overlay die verschijnt als we een ticket aan het openen zijn
+            // Laad-overlay tijdens het verwerken van een deep link
             if isProcessingDeepLink {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
@@ -75,57 +74,38 @@ struct ContentView: View {
                     showDeepLinkedTicket: $showDeepLinkedTicket
                 )
                 .background(ClearBackgroundView())
-                // 2. DE OPLOSSING: Open het ticket direct hier als een pop-up (sheet)
-                                .sheet(isPresented: $showDeepLinkedTicket) {
-                                    // CRUCIAAL: We wikkelen de view in een NavigationView.
-                                    // Hierdoor worden de .toolbar knoppen in TicketDetailView zichtbaar en actief.
-                                    NavigationView {
-                                        if let ticket = ticketToShow {
-                                            // We geven het ID door, precies zoals TicketDetailView verwacht
-                                            TicketDetailView(ticketID: ticket.id, viewModel: viewModel)
-                                        } else {
-                                            // Fallback laadscherm
-                                            ProgressView("Ticket laden...")
-                                        }
-                                    }
-                                    .background(ClearBackgroundView())
-                                }
+                .sheet(isPresented: $showDeepLinkedTicket) {
+                    NavigationView {
+                        if let ticket = ticketToShow {
+                            TicketDetailView(ticketID: ticket.id, viewModel: viewModel)
+                        } else {
+                            ProgressView("Ticket laden...")
+                        }
+                    }
+                    .background(ClearBackgroundView())
+                }
             } else {
                 LockedView(onUnlock: { authManager.authenticate() })
             }
         }
         .onAppear {
-            if isSetupComplete { authManager.authenticate() }
-            
-            // Aggressive Window transparency fix
-            UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .forEach { windowScene in
-                    windowScene.windows.forEach { window in
-                        window.backgroundColor = .clear
-                    }
-                }
-            
-            // Global fix for List and NavigationStack transparency
-            UITableView.appearance().backgroundColor = .clear
-            UITableViewCell.appearance().backgroundColor = .clear
-            UICollectionView.appearance().backgroundColor = .clear
-            
-            // Target the navigation container area specifically
-            UINavigationBar.appearance().backgroundColor = .clear
-            UINavigationBar.appearance().setBackgroundImage(UIImage(), for: .default)
-            UINavigationBar.appearance().shadowImage = UIImage()
+            if isSetupComplete { 
+                authManager.authenticate()
+                configureAppearance()
+            }
         }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
             case .active:
-                if !authManager.isUnlocked { authManager.authenticate() }
-                else if let id = DeepLinkManager.shared.pendingTicketID {
+                if !authManager.isUnlocked { 
+                    authManager.authenticate() 
+                } else if let id = DeepLinkManager.shared.pendingTicketID {
                     handleDeepLinkInView(ticketID: id)
                 }
             case .inactive, .background:
                 authManager.lock()
-            @unknown default: break
+            @unknown default: 
+                break
             }
         }
         .onChange(of: authManager.isUnlocked) { _, isUnlocked in
@@ -152,26 +132,20 @@ struct ContentView: View {
     private func handleDeepLinkInView(ticketID: Int) {
         print("DEBUG: Start verwerking ticket \(ticketID)")
         
-        // Zet de laad-overlay AAN
         withAnimation { isProcessingDeepLink = true }
         
         Task {
-            // STAP 1: Cache verversen (zodat je lijst up-to-date is)
             await viewModel.refreshAllData()
             
-            // STAP 2: Specifiek ticket ophalen
             if let ticket = await viewModel.handleDeepLink(ticketID: ticketID) {
                 await MainActor.run {
                     self.ticketToShow = ticket
                     self.showDeepLinkedTicket = true
-                    
-                    // Reset ID en zet laad-overlay UIT
                     DeepLinkManager.shared.pendingTicketID = nil
                     withAnimation { isProcessingDeepLink = false }
                 }
             } else {
                 print("DEBUG: Ticket niet gevonden.")
-                // Ook bij falen de overlay uitzetten
                 await MainActor.run {
                     DeepLinkManager.shared.pendingTicketID = nil
                     withAnimation { isProcessingDeepLink = false }
@@ -186,5 +160,22 @@ struct ContentView: View {
         case .dark: return .dark
         default: return nil
         }
+    }
+    
+    private func configureAppearance() {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .forEach { windowScene in
+                windowScene.windows.forEach { window in
+                    window.backgroundColor = .clear
+                }
+            }
+        
+        UITableView.appearance().backgroundColor = .clear
+        UITableViewCell.appearance().backgroundColor = .clear
+        UICollectionView.appearance().backgroundColor = .clear
+        UINavigationBar.appearance().backgroundColor = .clear
+        UINavigationBar.appearance().setBackgroundImage(UIImage(), for: .default)
+        UINavigationBar.appearance().shadowImage = UIImage()
     }
 }

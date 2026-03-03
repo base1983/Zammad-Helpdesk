@@ -13,9 +13,20 @@
 		C60E8A072E744A1100E9F6C1 /* Montserrat-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C60E8A002E744A1100E9F6C1 /* Montserrat-Bold.ttf */; };
 		C60E8A082E744A1100E9F6C1 /* XanhMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C60E8A032E744A1100E9F6C1 /* XanhMono-Regular.ttf */; };
 		C60E8A492E744AD900E9F6C1 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = C60E8A482E744AD900E9F6C1 /* GoogleMobileAds */; };
+		C66E1D9C2F55D24100052620 /* Zammad Helpdesk Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C66E1D922F55D24100052620 /* Zammad Helpdesk Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C6E543D02E745D2F00FB1AC7 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = C6E543CF2E745D2F00FB1AC7 /* Lottie */; };
 		C6E543D52E7948E100FB1AC7 /* Dosis-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C6E543D42E7948E100FB1AC7 /* Dosis-Regular.ttf */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C66E1D9A2F55D24100052620 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C60E89E82E7449C200E9F6C1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C66E1D912F55D24100052620;
+			remoteInfo = "Zammad Helpdesk Watch App Watch App";
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		C60E8A7E2E744C5C00E9F6C1 /* Embed Frameworks */ = {
@@ -28,6 +39,17 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C66E1D9D2F55D24100052620 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				C66E1D9C2F55D24100052620 /* Zammad Helpdesk Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -37,13 +59,57 @@
 		C60E8A012E744A1100E9F6C1 /* Montserrat-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Regular.ttf"; sourceTree = "<group>"; };
 		C60E8A022E744A1100E9F6C1 /* nothing-font-5x7.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "nothing-font-5x7.ttf"; sourceTree = "<group>"; };
 		C60E8A032E744A1100E9F6C1 /* XanhMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "XanhMono-Regular.ttf"; sourceTree = "<group>"; };
+		C66E1D922F55D24100052620 /* Zammad Helpdesk Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Zammad Helpdesk Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C6E543D42E7948E100FB1AC7 /* Dosis-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Dosis-Regular.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		C66E1DA32F55D4DA00052620 /* Exceptions for "Zammad Helpdesk Watch App" folder in "Zammad Helpdesk" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				WATCH_APP_SETUP.md,
+				WATCH_OVERVIEW.md,
+				WATCH_QUICKSTART.md,
+			);
+			target = C60E89EF2E7449C300E9F6C1 /* Zammad Helpdesk */;
+		};
+		C66E1DA42F55D4DA00052620 /* Exceptions for "Zammad Helpdesk Watch App" folder in "Zammad Helpdesk Watch App" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				WATCH_APP_SETUP.md,
+				WATCH_OVERVIEW.md,
+				WATCH_QUICKSTART.md,
+			);
+			target = C66E1D912F55D24100052620 /* Zammad Helpdesk Watch App */;
+		};
+		C66E1DAA2F55D98D00052620 /* Exceptions for "Zammad Helpdesk" folder in "Zammad Helpdesk Watch App" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Managers/Managers.swift,
+				Models.swift,
+				Utilities/Extensions.swift,
+				ZammadAPIService.swift,
+			);
+			target = C66E1D912F55D24100052620 /* Zammad Helpdesk Watch App */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C60E89F22E7449C300E9F6C1 /* Zammad Helpdesk */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C66E1DAA2F55D98D00052620 /* Exceptions for "Zammad Helpdesk" folder in "Zammad Helpdesk Watch App" target */,
+			);
 			path = "Zammad Helpdesk";
+			sourceTree = "<group>";
+		};
+		C66E1D932F55D24100052620 /* Zammad Helpdesk Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C66E1DA32F55D4DA00052620 /* Exceptions for "Zammad Helpdesk Watch App" folder in "Zammad Helpdesk" target */,
+				C66E1DA42F55D4DA00052620 /* Exceptions for "Zammad Helpdesk Watch App" folder in "Zammad Helpdesk Watch App" target */,
+			);
+			path = "Zammad Helpdesk Watch App";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -58,6 +124,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C66E1D8F2F55D24100052620 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -68,6 +141,7 @@
 				C60E89F12E7449C300E9F6C1 /* Products */,
 				C60E89FE2E744A0100E9F6C1 /* Fonts */,
 				C66EB3052E745C5100BBFB90 /* Frameworks */,
+				C66E1D932F55D24100052620 /* Zammad Helpdesk Watch App */,
 			);
 			sourceTree = "<group>";
 		};
@@ -75,6 +149,7 @@
 			isa = PBXGroup;
 			children = (
 				C60E89F02E7449C300E9F6C1 /* Zammad Helpdesk.app */,
+				C66E1D922F55D24100052620 /* Zammad Helpdesk Watch App.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -110,10 +185,12 @@
 				C60E89ED2E7449C300E9F6C1 /* Frameworks */,
 				C60E89EE2E7449C300E9F6C1 /* Resources */,
 				C60E8A7E2E744C5C00E9F6C1 /* Embed Frameworks */,
+				C66E1D9D2F55D24100052620 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				C66E1D9B2F55D24100052620 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				C60E89F22E7449C300E9F6C1 /* Zammad Helpdesk */,
@@ -127,6 +204,28 @@
 			productReference = C60E89F02E7449C300E9F6C1 /* Zammad Helpdesk.app */;
 			productType = "com.apple.product-type.application";
 		};
+		C66E1D912F55D24100052620 /* Zammad Helpdesk Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C66E1DA02F55D24100052620 /* Build configuration list for PBXNativeTarget "Zammad Helpdesk Watch App" */;
+			buildPhases = (
+				C66E1D8E2F55D24100052620 /* Sources */,
+				C66E1D8F2F55D24100052620 /* Frameworks */,
+				C66E1D902F55D24100052620 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C66E1D932F55D24100052620 /* Zammad Helpdesk Watch App */,
+			);
+			name = "Zammad Helpdesk Watch App";
+			packageProductDependencies = (
+			);
+			productName = "Zammad Helpdesk Watch App Watch App";
+			productReference = C66E1D922F55D24100052620 /* Zammad Helpdesk Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -134,11 +233,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1640;
+				LastSwiftUpdateCheck = 2630;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					C60E89EF2E7449C300E9F6C1 = {
 						CreatedOnToolsVersion = 16.4;
+					};
+					C66E1D912F55D24100052620 = {
+						CreatedOnToolsVersion = 26.3;
 					};
 				};
 			};
@@ -164,6 +266,7 @@
 			projectRoot = "";
 			targets = (
 				C60E89EF2E7449C300E9F6C1 /* Zammad Helpdesk */,
+				C66E1D912F55D24100052620 /* Zammad Helpdesk Watch App */,
 			);
 		};
 /* End PBXProject section */
@@ -182,6 +285,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C66E1D902F55D24100052620 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -192,7 +302,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C66E1D8E2F55D24100052620 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C66E1D9B2F55D24100052620 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C66E1D912F55D24100052620 /* Zammad Helpdesk Watch App */;
+			targetProxy = C66E1D9A2F55D24100052620 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		C60E89F92E7449C400E9F6C1 /* Debug */ = {
@@ -331,7 +456,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk/Zammad Helpdesk.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20.5;
+				CURRENT_PROJECT_VERSION = 22.1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
@@ -370,7 +495,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk/Zammad Helpdesk.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20.5;
+				CURRENT_PROJECT_VERSION = 22.1;
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -399,6 +524,76 @@
 			};
 			name = Release;
 		};
+		C66E1D9E2F55D24100052620 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk Watch App/Zammad Helpdesk Watch App.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = BT576Q4697;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Zammad Helpdesk Watch App";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.World-ICT.Zammad-Helpdesk";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.World-ICT.Zammad-Helpdesk.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		C66E1D9F2F55D24100052620 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk Watch App/Zammad Helpdesk Watch App.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = BT576Q4697;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Zammad Helpdesk Watch App";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.World-ICT.Zammad-Helpdesk";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.World-ICT.Zammad-Helpdesk.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -416,6 +611,15 @@
 			buildConfigurations = (
 				C60E89FC2E7449C400E9F6C1 /* Debug */,
 				C60E89FD2E7449C400E9F6C1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C66E1DA02F55D24100052620 /* Build configuration list for PBXNativeTarget "Zammad Helpdesk Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C66E1D9E2F55D24100052620 /* Debug */,
+				C66E1D9F2F55D24100052620 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

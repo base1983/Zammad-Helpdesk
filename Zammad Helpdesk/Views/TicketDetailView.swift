@@ -220,14 +220,10 @@ struct TicketDetailView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(ClearBackgroundView())
             .onAppear {
-                UITableView.appearance().backgroundColor = .clear
-                // 1. Mark as read locally
                 ReadStatusManager.shared.markAsRead(ticket: ticket)
-                // 2. Update the badge immediately
                 viewModel.updateApplicationBadge()
             }
         }

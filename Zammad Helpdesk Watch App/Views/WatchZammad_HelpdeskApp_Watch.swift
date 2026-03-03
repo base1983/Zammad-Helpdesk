@@ -1,14 +1,13 @@
 //
-//  WatchSessionManager.swift
+//  Zammad_HelpdeskApp_Watch.swift
 //  Zammad Helpdesk Watch App
 //
-//  Receives credentials from iPhone via WCSession and stores them
-//  in UserDefaults so ZammadAPIService/SettingsManager can read them.
-//
 
-import Foundation
+import SwiftUI
 import WatchConnectivity
 import Combine
+
+// MARK: - Watch Session Manager
 
 class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     static let shared = WatchSessionManager()
@@ -23,12 +22,9 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
     
-    // MARK: - Request Credentials from iPhone
-    
     func requestCredentials() {
         guard WCSession.default.isReachable else {
             print("iPhone not reachable, checking applicationContext")
-            // Try to read from previously received applicationContext
             let context = WCSession.default.receivedApplicationContext
             if !context.isEmpty {
                 storeCredentials(from: context)
@@ -42,8 +38,6 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             print("Failed to request credentials from iPhone: \(error)")
         })
     }
-    
-    // MARK: - Store Credentials
     
     private func storeCredentials(from data: [String: Any]) {
         guard let token = data["zammad_api_token"] as? String, !token.isEmpty,
@@ -66,20 +60,31 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         if activationState == .activated {
             print("WCSession activated on Watch")
-            // Check if we already have credentials from applicationContext
             let context = session.receivedApplicationContext
             if !context.isEmpty {
                 storeCredentials(from: context)
             } else {
-                // Try requesting from iPhone
                 requestCredentials()
             }
         }
     }
     
-    // Called when iPhone sends updateApplicationContext
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
         print("Watch received applicationContext from iPhone")
         storeCredentials(from: applicationContext)
+    }
+}
+
+// MARK: - Watch App
+
+@main
+struct Zammad_HelpdeskApp_Watch: App {
+    @StateObject private var sessionManager = WatchSessionManager.shared
+    
+    var body: some Scene {
+        WindowGroup {
+            WatchTicketListView()
+                .environmentObject(sessionManager)
+        }
     }
 }

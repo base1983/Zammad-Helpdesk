@@ -22,6 +22,10 @@ enum ColorSchemeOption: String, CaseIterable, Identifiable {
 class SettingsManager {
     static let shared = SettingsManager()
     
+    private var defaults: UserDefaults {
+        UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk") ?? .standard
+    }
+    
     // Keys voor UserDefaults
     private let tokenKey = "zammad_api_token"
     private let lockKey = "is_biometric_lock_enabled"
@@ -35,40 +39,40 @@ class SettingsManager {
     private let lastFetchDateKey = "background_last_fetch_date"
 
     // MARK: - API & Server Settings
-    func save(token: String) { UserDefaults.standard.set(token, forKey: tokenKey) }
-    func loadToken() -> String? { UserDefaults.standard.string(forKey: tokenKey) }
+    func save(token: String) { defaults.set(token, forKey: tokenKey) }
+    func loadToken() -> String? { defaults.string(forKey: tokenKey) }
     
-    func save(serverURL: String) { UserDefaults.standard.set(serverURL, forKey: serverURLKey) }
-    func loadServerURL() -> String { UserDefaults.standard.string(forKey: serverURLKey) ?? "" }
+    func save(serverURL: String) { defaults.set(serverURL, forKey: serverURLKey) }
+    func loadServerURL() -> String { defaults.string(forKey: serverURLKey) ?? "" }
     
     // MARK: - Security & Appearance
-    func save(isLockEnabled: Bool) { UserDefaults.standard.set(isLockEnabled, forKey: lockKey) }
-    func isLockEnabled() -> Bool { UserDefaults.standard.bool(forKey: lockKey) }
+    func save(isLockEnabled: Bool) { defaults.set(isLockEnabled, forKey: lockKey) }
+    func isLockEnabled() -> Bool { defaults.bool(forKey: lockKey) }
     
-    func save(theme: ColorSchemeOption) { UserDefaults.standard.set(theme.rawValue, forKey: themeKey) }
+    func save(theme: ColorSchemeOption) { defaults.set(theme.rawValue, forKey: themeKey) }
     func loadTheme() -> ColorSchemeOption {
-        let savedValue = UserDefaults.standard.string(forKey: themeKey) ?? ""
+        let savedValue = defaults.string(forKey: themeKey) ?? ""
         return ColorSchemeOption(rawValue: savedValue) ?? .system
     }
 
     // MARK: - In-App Purchases
-    func save(areAdsRemoved: Bool) { UserDefaults.standard.set(areAdsRemoved, forKey: adsRemovedKey) }
-    func areAdsRemoved() -> Bool { UserDefaults.standard.bool(forKey: adsRemovedKey) }
+    func save(areAdsRemoved: Bool) { defaults.set(areAdsRemoved, forKey: adsRemovedKey) }
+    func areAdsRemoved() -> Bool { defaults.bool(forKey: adsRemovedKey) }
     
     // MARK: - Notification Settings
     // AANGEPAST: Deze functie slaat nu ALLEEN de voorkeur op.
     // De logica voor aan/afmelden zit in je NotificationSetupManager en de UI Toggle.
     func save(areRealtimeNotificationsEnabled: Bool) {
-        UserDefaults.standard.set(areRealtimeNotificationsEnabled, forKey: realtimeNotificationsEnabledKey)
+        defaults.set(areRealtimeNotificationsEnabled, forKey: realtimeNotificationsEnabledKey)
     }
-    func areRealtimeNotificationsEnabled() -> Bool { UserDefaults.standard.bool(forKey: realtimeNotificationsEnabledKey) }
+    func areRealtimeNotificationsEnabled() -> Bool { defaults.bool(forKey: realtimeNotificationsEnabledKey) }
     
     // Proxy & Token Management (Nodig voor NotificationProxyService)
-    func save(proxyUserID: String) { UserDefaults.standard.set(proxyUserID, forKey: proxyUserIDKey) }
-    func getProxyUserID() -> String? { UserDefaults.standard.string(forKey: proxyUserIDKey) }
+    func save(proxyUserID: String) { defaults.set(proxyUserID, forKey: proxyUserIDKey) }
+    func getProxyUserID() -> String? { defaults.string(forKey: proxyUserIDKey) }
     
-    func save(deviceToken: String) { UserDefaults.standard.set(deviceToken, forKey: deviceTokenKey) }
-    func loadDeviceToken() -> String? { UserDefaults.standard.string(forKey: deviceTokenKey) }
+    func save(deviceToken: String) { defaults.set(deviceToken, forKey: deviceTokenKey) }
+    func loadDeviceToken() -> String? { defaults.string(forKey: deviceTokenKey) }
 
     // Hulpfunctie voor debugging
     func getWebhookURL() -> String? {
@@ -77,8 +81,8 @@ class SettingsManager {
     }
     
     // MARK: - Background Task Management
-    func save(lastFetchDate: Date) { UserDefaults.standard.set(lastFetchDate, forKey: lastFetchDateKey) }
-    func loadLastFetchDate() -> Date { UserDefaults.standard.object(forKey: lastFetchDateKey) as? Date ?? .distantPast }
+    func save(lastFetchDate: Date) { defaults.set(lastFetchDate, forKey: lastFetchDateKey) }
+    func loadLastFetchDate() -> Date { defaults.object(forKey: lastFetchDateKey) as? Date ?? .distantPast }
 }
 
 // LET OP: Ik heb de 'NotificationManager' class hier verwijderd.

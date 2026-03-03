@@ -92,7 +92,6 @@ class TicketViewModel: ObservableObject {
                     self.currentTickets = tickets
                     self.errorMessage = nil
                     
-                    // ADD THIS LINE HERE:
                     self.updateApplicationBadge()
                     
                 } catch {
@@ -279,6 +278,9 @@ class TicketViewModel: ObservableObject {
                 print("DEBUG: Updated App Badge to \(unreadCount)")
             }
         }
+    
+    // MARK: - Watch Connectivity
+    // TODO: Add WatchConnectivityManager to enable iOS-to-Watch data syncing
     
     // MARK: - Helper & Formatting Functions
     func stateName(for id: Int) -> String { ticketStates.first { $0.id == id }?.name ?? "unknown".localized() }

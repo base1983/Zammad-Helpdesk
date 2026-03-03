@@ -9,7 +9,8 @@ struct TicketListContainerView: View {
     
     @State private var isShowingCreateTicket = false
     @State private var isShowingSettings = false
-    @AppStorage("are_ads_removed") private var areAdsRemoved: Bool = false
+    private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
+    @AppStorage("are_ads_removed", store: Self.groupDefaults) private var areAdsRemoved: Bool = false
     
     @State private var searchText = ""
     @State private var isSearchActive = false
@@ -38,13 +39,6 @@ struct TicketListContainerView: View {
                     .navigationDestination(for: Ticket.self) { ticket in
                         TicketDetailView(ticketID: ticket.id, viewModel: viewModel)
                     }
-                    .navigationDestination(isPresented: $showDeepLinkedTicket) {
-                        if let ticket = ticketToShow {
-                            TicketDetailView(ticketID: ticket.id, viewModel: viewModel)
-                        } else {
-                            ProgressView()
-                        }
-                    }
                     .toolbar { navigationToolbar(width: geometry.size.width) }
                     .toolbarBackground(.hidden, for: .navigationBar)
                 }
@@ -60,10 +54,6 @@ struct TicketListContainerView: View {
         .background(ClearBackgroundView())
         .tint(.accentColor)
         .onAppear {
-            UITableView.appearance().backgroundColor = .clear
-            UITableViewCell.appearance().backgroundColor = .clear
-            UICollectionView.appearance().backgroundColor = .clear
-            
             if deepLinkManager.pendingTicketID == nil {
                 Task { await viewModel.refreshAllData() }
             }

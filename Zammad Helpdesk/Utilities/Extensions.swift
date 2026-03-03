@@ -19,18 +19,19 @@ extension Date {
     }
 }
 
+#if os(iOS)
 // MARK: - UIKit Background Fixes
 struct ClearBackgroundView: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
         let view = UIView()
-        DispatchQueue.main.async {
-            // Find the hosting controller and clear its background
+        view.backgroundColor = .clear
+        Task { @MainActor in
             view.parentViewController?.view.backgroundColor = .clear
-            // Also target potential drop shadow views
             view.superview?.superview?.backgroundColor = .clear
         }
         return view
     }
+    
     func updateUIView(_ uiView: UIView, context: Context) {}
 }
 
@@ -57,4 +58,5 @@ struct VisualEffectView: UIViewRepresentable {
         uiView.effect = effect
     }
 }
+#endif
 

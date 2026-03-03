@@ -31,7 +31,6 @@ struct ToolbarButtonStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .frame(width: 36, height: 36)
-       //     .background(Color.primary.opacity(0.1))
             .clipShape(Circle())
             .foregroundColor(.primary)
     }

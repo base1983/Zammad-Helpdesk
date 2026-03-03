@@ -17,7 +17,7 @@ Follow these steps IN ORDER in Xcode to complete the Apple Watch app integration
 4. Configure your Watch App:
    - **Product Name:** `Zammad Helpdesk Watch App`
    - **Organization Identifier:** `com.worldict` (same as iOS app)
-   - **Bundle Identifier:** `com.worldict.helpdesk.watchkitapp` (auto-generated)
+   - **Bundle Identifier:** `com.worldict.Zammad Helpdesk Watch App` (auto-generated)
    - **Language:** Swift
    - **Interface:** SwiftUI
    - Uncheck "Include Notification Scene" (not needed)

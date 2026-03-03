@@ -8,6 +8,7 @@ import SwiftUI
 struct WatchTicketListView: View {
     @StateObject private var viewModel = WatchTicketViewModel()
     @State private var selectedFilter: WatchTicketViewModel.FilterType = .myTickets
+    @State private var showFilterSheet = false
     
     var body: some View {
         NavigationStack {
@@ -25,23 +26,19 @@ struct WatchTicketListView: View {
             .navigationTitle("tickets".localized())
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("my_assigned_tickets".localized()) {
-                            selectedFilter = .myTickets
-                            Task { await viewModel.loadTickets(filter: .myTickets) }
-                        }
-                        Button("unassigned_tickets".localized()) {
-                            selectedFilter = .unassigned
-                            Task { await viewModel.loadTickets(filter: .unassigned) }
-                        }
-                        Button("all_open_tickets".localized()) {
-                            selectedFilter = .allOpen
-                            Task { await viewModel.loadTickets(filter: .allOpen) }
-                        }
+                    Button {
+                        showFilterSheet = true
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle")
                     }
                 }
+            }
+            .sheet(isPresented: $showFilterSheet) {
+                WatchFilterView(
+                    viewModel: viewModel,
+                    selectedFilter: $selectedFilter,
+                    isPresented: $showFilterSheet
+                )
             }
         }
         .task {
@@ -89,6 +86,60 @@ struct WatchTicketListView: View {
             .buttonStyle(.borderedProminent)
         }
         .padding()
+    }
+}
+
+struct WatchFilterView: View {
+    @ObservedObject var viewModel: WatchTicketViewModel
+    @Binding var selectedFilter: WatchTicketViewModel.FilterType
+    @Binding var isPresented: Bool
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    filterButton("my_assigned_tickets".localized(), filter: .myTickets)
+                    filterButton("unassigned_tickets".localized(), filter: .unassigned)
+                    filterButton("all_open_tickets".localized(), filter: .allOpen)
+                }
+                
+                if !viewModel.ticketStates.isEmpty {
+                    Section("filter_by_status".localized()) {
+                        ForEach(viewModel.ticketStates) { state in
+                            filterButton(
+                                viewModel.localizedStatusName(for: state.name),
+                                filter: .byStatus(id: state.id, name: state.name)
+                            )
+                        }
+                    }
+                }
+            }
+            .navigationTitle("filter".localized())
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("cancel".localized()) {
+                        isPresented = false
+                    }
+                }
+            }
+        }
+    }
+    
+    private func filterButton(_ title: String, filter: WatchTicketViewModel.FilterType) -> some View {
+        Button {
+            selectedFilter = filter
+            isPresented = false
+            Task { await viewModel.loadTickets(filter: filter) }
+        } label: {
+            HStack {
+                Text(title)
+                Spacer()
+                if selectedFilter == filter {
+                    Image(systemName: "checkmark")
+                        .foregroundColor(.accentColor)
+                }
+            }
+        }
     }
 }
 

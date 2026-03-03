@@ -5,6 +5,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 @MainActor
 class WatchTicketViewModel: ObservableObject {
@@ -19,8 +20,9 @@ class WatchTicketViewModel: ObservableObject {
     
     private let apiService = ZammadAPIService.shared
     
-    enum FilterType {
+    enum FilterType: Hashable {
         case myTickets, unassigned, allOpen
+        case byStatus(id: Int, name: String)
     }
     
     var agentUsers: [User] {
@@ -55,7 +57,7 @@ class WatchTicketViewModel: ObservableObject {
         async let userTask = apiService.fetchCurrentUser()
         async let statesTask = apiService.fetchTicketStates()
         async let prioritiesTask = apiService.fetchTicketPriorities()
-        async let usersTask = apiService.fetchUsers()
+        async let usersTask = apiService.fetchAllUsers()
         async let rolesTask = apiService.fetchRoles()
         
         let (user, states, priorities, users, roles) = try await (
@@ -74,11 +76,13 @@ class WatchTicketViewModel: ObservableObject {
         
         switch filter {
         case .myTickets:
-            return try await apiService.fetchTickets(query: "owner_id:\(currentUser.id) AND state.name:(new OR open)")
+            return try await apiService.searchTickets(query: "owner_id:\(currentUser.id) AND state.name:(new OR open)")
         case .unassigned:
-            return try await apiService.fetchTickets(query: "owner_id:1 AND state.name:(new OR open)")
+            return try await apiService.searchTickets(query: "owner_id:1 AND state.name:(new OR open)")
         case .allOpen:
-            return try await apiService.fetchTickets(query: "state.name:(new OR open)")
+            return try await apiService.searchTickets(query: "state.name:(new OR open)")
+        case .byStatus(let id, _):
+            return try await apiService.fetchTickets(byStatusId: id)
         }
     }
     
@@ -88,15 +92,30 @@ class WatchTicketViewModel: ObservableObject {
         // Check if pending state requires pending_time
         let stateName = stateName(for: ticket.state_id)
         
+        let formatter = ISO8601DateFormatter()
+        
         if stateName.lowercased().contains("pending") && ticket.pending_time == nil {
             // For Watch, we'll set a default pending time of 1 hour from now
-            var updatedTicket = ticket
-            updatedTicket.pending_time = Date().addingTimeInterval(3600)
-            _ = try await apiService.updateTicket(id: updatedTicket.id, ticket: updatedTicket)
+            let pendingTime = formatter.string(from: Date().addingTimeInterval(3600))
+            let payload = TicketUpdatePayload(
+                owner_id: ticket.owner_id,
+                state_id: ticket.state_id,
+                priority_id: ticket.priority_id,
+                customer_id: ticket.customer_id,
+                pending_time: pendingTime
+            )
+            _ = try await apiService.updateTicket(id: ticket.id, payload: payload)
             return true
         }
         
-        _ = try await apiService.updateTicket(id: ticket.id, ticket: ticket)
+        let payload = TicketUpdatePayload(
+            owner_id: ticket.owner_id,
+            state_id: ticket.state_id,
+            priority_id: ticket.priority_id,
+            customer_id: ticket.customer_id,
+            pending_time: nil
+        )
+        _ = try await apiService.updateTicket(id: ticket.id, payload: payload)
         return false
     }
     
