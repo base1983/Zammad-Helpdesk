@@ -1,0 +1,36 @@
+/* Localizable.strings
+   Zammad Helpdesk Watch App - Dutch */
+
+// MARK: - General
+"cancel" = "Annuleren";
+"unknown" = "Onbekend";
+"unassigned" = "Niet toegewezen";
+"loading_data" = "Gegevens laden...";
+"try_again" = "Opnieuw proberen";
+
+// MARK: - Ticket List
+"tickets" = "Tickets";
+"my_assigned_tickets" = "Mijn toegewezen tickets";
+"unassigned_tickets" = "Niet-toegewezen tickets";
+"all_open_tickets" = "Alle open tickets";
+"filter" = "Filter";
+"filter_by_status" = "Filteren op status";
+"no_tickets_in_view" = "Geen tickets hier";
+
+// MARK: - Ticket Statuses
+"status_new" = "Nieuw";
+"status_open" = "Open";
+"status_pending_reminder" = "Wacht op herinnering";
+"status_closed" = "Gesloten";
+"status_merged" = "Samengevoegd";
+"status_pending_close" = "Wacht op sluiting";
+
+// MARK: - Ticket Details
+"loading_ticket_details" = "Ticketdetails laden...";
+"ticket_not_found" = "Ticket niet gevonden";
+"details_section_header" = "Details";
+"customer" = "Klant";
+"status" = "Status";
+"priority" = "Prioriteit";
+"owner" = "Eigenaar";
+"created_at" = "Aangemaakt op";

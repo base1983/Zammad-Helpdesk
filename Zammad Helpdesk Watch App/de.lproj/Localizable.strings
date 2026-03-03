@@ -1,0 +1,36 @@
+/* Localizable.strings
+   Zammad Helpdesk Watch App - German */
+
+// MARK: - General
+"cancel" = "Abbrechen";
+"unknown" = "Unbekannt";
+"unassigned" = "Nicht zugewiesen";
+"loading_data" = "Daten werden geladen...";
+"try_again" = "Erneut versuchen";
+
+// MARK: - Ticket List
+"tickets" = "Tickets";
+"my_assigned_tickets" = "Meine zugewiesenen Tickets";
+"unassigned_tickets" = "Nicht zugewiesene Tickets";
+"all_open_tickets" = "Alle offenen Tickets";
+"filter" = "Filter";
+"filter_by_status" = "Nach Status filtern";
+"no_tickets_in_view" = "Keine Tickets hier";
+
+// MARK: - Ticket Statuses
+"status_new" = "Neu";
+"status_open" = "Offen";
+"status_pending_reminder" = "Wartet auf Erinnerung";
+"status_closed" = "Geschlossen";
+"status_merged" = "Zusammengeführt";
+"status_pending_close" = "Wartet auf Schließung";
+
+// MARK: - Ticket Details
+"loading_ticket_details" = "Ticketdetails werden geladen...";
+"ticket_not_found" = "Ticket nicht gefunden";
+"details_section_header" = "Details";
+"customer" = "Kunde";
+"status" = "Status";
+"priority" = "Priorität";
+"owner" = "Besitzer";
+"created_at" = "Erstellt am";

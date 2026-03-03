@@ -1,0 +1,36 @@
+/* Localizable.strings
+   Zammad Helpdesk Watch App - French */
+
+// MARK: - General
+"cancel" = "Annuler";
+"unknown" = "Inconnu";
+"unassigned" = "Non attribué";
+"loading_data" = "Chargement des données...";
+"try_again" = "Réessayer";
+
+// MARK: - Ticket List
+"tickets" = "Tickets";
+"my_assigned_tickets" = "Mes tickets attribués";
+"unassigned_tickets" = "Tickets non attribués";
+"all_open_tickets" = "Tous les tickets ouverts";
+"filter" = "Filtre";
+"filter_by_status" = "Filtrer par statut";
+"no_tickets_in_view" = "Aucun ticket ici";
+
+// MARK: - Ticket Statuses
+"status_new" = "Nouveau";
+"status_open" = "Ouvert";
+"status_pending_reminder" = "En attente de rappel";
+"status_closed" = "Fermé";
+"status_merged" = "Fusionné";
+"status_pending_close" = "En attente de fermeture";
+
+// MARK: - Ticket Details
+"loading_ticket_details" = "Chargement des détails du ticket...";
+"ticket_not_found" = "Ticket introuvable";
+"details_section_header" = "Détails";
+"customer" = "Client";
+"status" = "Statut";
+"priority" = "Priorité";
+"owner" = "Propriétaire";
+"created_at" = "Créé le";
