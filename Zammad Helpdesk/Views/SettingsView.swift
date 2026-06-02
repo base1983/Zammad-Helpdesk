@@ -19,6 +19,8 @@ struct SettingsView: View {
     @State private var testStatus: String?
     @State private var isTesting = false
     @State private var isShowingWebhookGuide = false
+    @State private var isShowingLoginSheet = false
+    @State private var isShowingSSOSheet = false
 
     var body: some View {
         NavigationStack {
@@ -68,24 +70,51 @@ struct SettingsView: View {
                 .keyboardType(.URL)
                 .autocapitalization(.none)
                 .textContentType(.URL)
-            
+
             SecureField("paste_api_token".localized(), text: $apiToken)
-            
+
+            Button {
+                isShowingSSOSheet = true
+            } label: {
+                Label("login_with_sso".localized(), systemImage: "globe")
+            }
+            .font(.subheadline)
+            .disabled(serverURL.isEmpty)
+
+            Button {
+                isShowingLoginSheet = true
+            } label: {
+                Label("login_with_password".localized(), systemImage: "person.badge.key")
+            }
+            .font(.subheadline)
+
             HStack {
                 Button("test_connection".localized()) { testConnection() }
                     .disabled(isTesting)
-                
+
                 if isTesting {
                     ProgressView().padding(.leading, 5)
                 }
-                
+
                 Spacer()
-                
+
                 if let status = testStatus {
                     Text(status)
                         .font(.caption)
                         .foregroundColor(status == "connection_successful".localized() ? .green : .red)
                 }
+            }
+        }
+        .sheet(isPresented: $isShowingLoginSheet) {
+            PasswordLoginSheet(serverURL: serverURL) { newToken in
+                apiToken = newToken
+                testStatus = "connection_successful".localized()
+            }
+        }
+        .sheet(isPresented: $isShowingSSOSheet) {
+            SSOLoginView(serverURL: serverURL) { newToken in
+                apiToken = newToken
+                testStatus = "connection_successful".localized()
             }
         }
     }
@@ -151,6 +180,94 @@ struct SettingsView: View {
             await MainActor.run {
                 testStatus = success ? "connection_successful".localized() : "connection_failed".localized()
                 isTesting = false
+            }
+        }
+    }
+}
+
+// MARK: - Component: Password Login Sheet
+struct PasswordLoginSheet: View {
+    let serverURL: String
+    let onTokenReceived: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var username = ""
+    @State private var password = ""
+    @State private var isLoggingIn = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("credentials".localized())) {
+                    TextField("username_placeholder".localized(), text: $username)
+                        .autocapitalization(.none)
+                        .textContentType(.username)
+                    SecureField("password_placeholder".localized(), text: $password)
+                        .textContentType(.password)
+                }
+
+                Section {
+                    Button(action: login) {
+                        HStack {
+                            if isLoggingIn { ProgressView().padding(.trailing, 4) }
+                            Text("login".localized())
+                        }
+                    }
+                    .disabled(isLoggingIn || username.isEmpty || password.isEmpty || serverURL.isEmpty)
+                }
+
+                if let errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+                }
+
+                Section {
+                    Text("password_login_explainer".localized())
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .navigationTitle("login_with_password".localized())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("cancel".localized()) { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func login() {
+        isLoggingIn = true
+        errorMessage = nil
+        Task {
+            do {
+                let tokenName = "iOS Helpdesk – \(UIDevice.current.name)"
+                let token = try await ZammadAPIService.shared.createAccessToken(
+                    url: serverURL,
+                    username: username,
+                    password: password,
+                    tokenName: tokenName
+                )
+                await MainActor.run {
+                    onTokenReceived(token)
+                    isLoggingIn = false
+                    dismiss()
+                }
+            } catch APIError.authenticationFailed {
+                await MainActor.run {
+                    errorMessage = "login_failed".localized()
+                    isLoggingIn = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    isLoggingIn = false
+                }
             }
         }
     }

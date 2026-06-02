@@ -167,3 +167,46 @@
 "no_activities_found_check_admin" = "No activities found. Please check your Zammad admin settings.";
 "select_activity" = "Select an activity";
 "configure_server_for_notifications" = "Configure your server to enable real-time notifications.";
+
+// MARK: - Attachments
+"attachments" = "Attachments";
+"add_photo" = "Photo";
+"add_file" = "File";
+
+// MARK: - Drafts
+"draft_restored" = "Draft restored";
+"discard_draft" = "Discard";
+"draft_indicator" = "Draft saved";
+
+// MARK: - Authentication
+"auth_method" = "Sign-in Method";
+"auth_method_password" = "Password";
+"auth_method_token" = "Token";
+"username" = "Username";
+"username_placeholder" = "Your Zammad username or email";
+"password" = "Password";
+"password_placeholder" = "Your Zammad password";
+"login" = "Sign In";
+"login_with_password" = "Sign in with password";
+"login_failed" = "Sign-in failed. Please check your credentials.";
+"please_fill_credentials" = "Please enter a username and password.";
+"credentials" = "Credentials";
+"password_login_explainer" = "Your password is only used once to generate a personal access token. It is not stored on this device.";
+"auth_method_sso" = "SSO";
+"login_with_sso" = "Sign in via SSO";
+"sso_explainer" = "Works with Azure AD, Google, SAML and other SSO providers configured in Zammad.";
+"sso_token_ready" = "Token created and ready";
+"creating_token" = "Creating token...";
+"sso_failed_title" = "Automatic creation failed";
+"sso_failed_message" = "We couldn't create a token automatically. Please create one manually in Zammad and paste it into the app.";
+"sso_open_in_safari" = "Open Zammad profile";
+"sso_status_loading" = "Loading...";
+"sso_status_waiting" = "Waiting for login";
+"sso_status_creating" = "Creating token";
+"sso_status_failed" = "Failed";
+"im_logged_in" = "I'm logged in";
+"open_profile_page" = "Open profile page";
+"retry" = "Retry";
+"login_via_safari" = "Sign in with Safari";
+"paste_token" = "Paste token";
+"paste_token_explainer" = "Did you create a token via Safari in your Zammad profile? Paste it below.";

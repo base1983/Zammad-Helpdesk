@@ -15,18 +15,26 @@ struct LockedView: View {
         VStack(spacing: 20) {
             Image(systemName: "lock.shield.fill")
                 .font(.system(size: 60))
-                .foregroundColor(.accentColor)
-            
+                .foregroundStyle(.white, .blue)
+                .symbolRenderingMode(.palette)
+
             Text("app_locked".localized())
                 .font(.largeTitle)
                 .fontWeight(.bold)
-            
+                .foregroundStyle(.white)
+
             Button(action: onUnlock) {
                 Label("unlock".localized(), systemImage: "faceid")
                     .font(.headline)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
             }
             .buttonStyle(.borderedProminent)
+            .tint(.blue)
         }
+        .padding(30)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
         .padding()
     }
 }

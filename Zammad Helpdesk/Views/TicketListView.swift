@@ -198,7 +198,11 @@ struct TicketListContainerView: View {
                 Button(errorMessage == APIError.tokenNotSet.errorDescription ? "open_settings".localized() : "try_again".localized()) {
                     if errorMessage == APIError.tokenNotSet.errorDescription { isShowingSettings = true }
                     else { Task { await viewModel.refreshAllData() } }
-                }.buttonStyle(.borderedProminent).padding(.top)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.blue)
+                .foregroundStyle(.white)
+                .padding(.top)
             }.padding(30).background(.thinMaterial).cornerRadius(12).frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if viewModel.displayTickets.isEmpty {
             VStack {

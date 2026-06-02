@@ -55,10 +55,18 @@ class ZammadAPIService {
     private func fetchData<T: Decodable>(for request: URLRequest) async throws -> T {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else { throw APIError.invalidResponse }
-        if httpResponse.statusCode == 401 { throw APIError.authenticationFailed }
+        let urlForLog = request.url?.absoluteString ?? "?"
+        if httpResponse.statusCode == 401 {
+            let errorBody = String(data: data, encoding: .utf8) ?? ""
+            print("Auth failed (401) on \(urlForLog): \(errorBody)")
+            if !errorBody.isEmpty {
+                throw APIError.serverError(statusCode: 401, message: errorBody)
+            }
+            throw APIError.authenticationFailed
+        }
         guard (200...299).contains(httpResponse.statusCode) else {
             let errorBody = String(data: data, encoding: .utf8)
-            if let errorBody { print("Server Error (\(httpResponse.statusCode)): \(errorBody)") }
+            print("Server Error (\(httpResponse.statusCode)) on \(urlForLog): \(errorBody ?? "no body")")
             throw APIError.serverError(statusCode: httpResponse.statusCode, message: errorBody)
         }
         
@@ -86,6 +94,119 @@ class ZammadAPIService {
             return false
         }
     }
+
+    /// Uses an existing Zammad browser session (from a WKWebView) to mint a personal access token.
+    /// Pairs the captured cookies with the page's CSRF token to satisfy session-based CSRF protection.
+    func createAccessTokenWithSession(url: String, cookies: [HTTPCookie], csrfToken: String?, tokenName: String) async throws -> String {
+        let baseURL = try getBaseURL(from: url)
+        guard let tokenURL = URL(string: "user_access_token", relativeTo: baseURL) else { throw APIError.invalidURL }
+
+        var request = URLRequest(url: tokenURL, timeoutInterval: 30.0)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let cookieHeader = cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
+        if !cookieHeader.isEmpty {
+            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+        }
+        if let csrfToken, !csrfToken.isEmpty {
+            request.setValue(csrfToken, forHTTPHeaderField: "X-CSRF-Token")
+        }
+
+        // Request a comprehensive set of permissions. Zammad only grants the ones
+        // the authenticated user actually has, so listing unknowns is harmless.
+        let body: [String: Any] = [
+            "name": tokenName,
+            "permission": Self.tokenPermissionsList
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let config = URLSessionConfiguration.ephemeral
+        config.httpShouldSetCookies = false
+        let session = URLSession(configuration: config)
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+        if httpResponse.statusCode == 401 { throw APIError.authenticationFailed }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let body = String(data: data, encoding: .utf8) ?? "no body"
+            print("SSO token creation failed: HTTP \(httpResponse.statusCode) — \(body)")
+            throw APIError.serverError(statusCode: httpResponse.statusCode, message: "HTTP \(httpResponse.statusCode): \(body.prefix(200))")
+        }
+
+        let bodyStr = String(data: data, encoding: .utf8) ?? "nil"
+        print("SSO token creation response: \(bodyStr.prefix(500))")
+
+        struct TokenResponse: Decodable { let token: String }
+        do {
+            let decoded = try JSONDecoder().decode(TokenResponse.self, from: data)
+            return decoded.token
+        } catch {
+            print("SSO token decoding failed. Body: \(bodyStr)")
+            throw APIError.decodingError
+        }
+    }
+
+    /// Logs in with username/password (HTTP Basic) and asks Zammad to mint a personal access token.
+    /// The password is never persisted — only the resulting token is returned.
+    func createAccessToken(url: String, username: String, password: String, tokenName: String) async throws -> String {
+        let baseURL = try getBaseURL(from: url)
+        guard let fullUrl = URL(string: "user_access_token", relativeTo: baseURL) else { throw APIError.invalidURL }
+
+        var request = URLRequest(url: fullUrl, timeoutInterval: 30.0)
+        request.httpMethod = "POST"
+        let credentials = "\(username):\(password)"
+        guard let credentialsData = credentials.data(using: .utf8) else { throw APIError.authenticationFailed }
+        request.setValue("Basic \(credentialsData.base64EncodedString())", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "name": tokenName,
+            "permission": Self.tokenPermissionsList
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+        if httpResponse.statusCode == 401 { throw APIError.authenticationFailed }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(statusCode: httpResponse.statusCode, message: String(data: data, encoding: .utf8))
+        }
+
+        let bodyStr = String(data: data, encoding: .utf8) ?? "nil"
+        print("Password token creation response: \(bodyStr.prefix(500))")
+
+        struct TokenResponse: Decodable { let token: String }
+        let decoded = try JSONDecoder().decode(TokenResponse.self, from: data)
+        return decoded.token
+    }
+
+    /// Permissions requested when creating a personal access token. Zammad only
+    /// grants the subset that the authenticated user actually has, so listing
+    /// admin permissions is harmless for normal agents.
+    private static let tokenPermissionsList: [String] = [
+        "ticket.agent",
+        "ticket.customer",
+        "user_preferences.notifications",
+        "user_preferences.password",
+        "user_preferences.access_token",
+        "user_preferences.language",
+        "user_preferences.avatar",
+        "user_preferences.calendar",
+        "user_preferences.device",
+        "user_preferences.out_of_office",
+        "cti.agent",
+        "chat.agent",
+        "knowledge_base.editor",
+        "knowledge_base.reader",
+        "report",
+        "admin.user",
+        "admin.organization",
+        "admin.group",
+        "admin.role",
+        "admin.tag"
+    ]
     
     func searchTickets(query: String) async throws -> [Ticket] {
         let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
@@ -279,27 +400,113 @@ class ZammadAPIService {
             return try await fetchData(for: request)
         }
 
-        func fetchTimeAccountingsGracefully(for ticketId: Int) async throws -> [TimeAccounting] {
+        func fetchTimeAccountingsGracefully(for ticketId: Int) async -> [TimeAccounting] {
             do {
                 return try await fetchTimeAccountings(for: ticketId)
-            } catch APIError.serverError(let statusCode, _) where statusCode == 404 {
-                print("Time accountings endpoint not found (404). Returning empty list.")
+            } catch APIError.serverError(let statusCode, _) where statusCode == 401 || statusCode == 403 || statusCode == 404 {
+                print("Time accountings endpoint forbidden (\(statusCode)). Continuing without time accountings.")
+                return []
+            } catch APIError.authenticationFailed {
+                print("Time accountings endpoint auth failed. Continuing without time accountings.")
                 return []
             } catch {
-                // Re-throw other errors
-                throw error
+                print("Time accountings endpoint failed: \(error). Continuing without.")
+                return []
             }
         }
 
-        func fetchTimeAccountingTypesGracefully() async throws -> [TimeAccountingType] {
+        func fetchTimeAccountingTypesGracefully() async -> [TimeAccountingType] {
             do {
                 return try await fetchTimeAccountingTypes()
-            } catch APIError.serverError(let statusCode, _) where statusCode == 404 {
-                print("Time accounting types endpoint not found (404). Returning empty list.")
+            } catch APIError.serverError(let statusCode, _) where statusCode == 401 || statusCode == 403 || statusCode == 404 {
+                print("Time accounting types endpoint forbidden (\(statusCode)). Continuing without time accounting.")
+                return []
+            } catch APIError.authenticationFailed {
+                print("Time accounting types endpoint auth failed. Continuing without time accounting.")
                 return []
             } catch {
-                // Re-throw other errors so the ViewModel knows something else went wrong
-                throw error
+                print("Time accounting types endpoint failed: \(error). Continuing without.")
+                return []
             }
+        }
+
+        func fetchRolesGracefully() async -> [Role] {
+            do {
+                return try await fetchRoles()
+            } catch APIError.serverError(let statusCode, _) where statusCode == 401 || statusCode == 403 || statusCode == 404 {
+                print("Roles endpoint forbidden (\(statusCode)). Continuing without roles.")
+                return []
+            } catch APIError.authenticationFailed {
+                print("Roles endpoint auth failed. Continuing without roles.")
+                return []
+            } catch {
+                print("Roles endpoint failed: \(error). Continuing without roles.")
+                return []
+            }
+        }
+
+        func fetchGroupsGracefully() async -> [TicketGroup] {
+            do {
+                return try await fetchGroups()
+            } catch APIError.serverError(let statusCode, _) where statusCode == 401 || statusCode == 403 || statusCode == 404 {
+                print("Groups endpoint forbidden (\(statusCode)). Continuing without groups.")
+                return []
+            } catch APIError.authenticationFailed {
+                print("Groups endpoint auth failed. Continuing without groups.")
+                return []
+            } catch {
+                print("Groups endpoint failed: \(error). Continuing without groups.")
+                return []
+            }
+        }
+
+        func fetchOrganizationsGracefully() async -> [Organization] {
+            do {
+                return try await fetchOrganizations()
+            } catch APIError.serverError(let statusCode, _) where statusCode == 401 || statusCode == 403 || statusCode == 404 {
+                print("Organizations endpoint forbidden (\(statusCode)). Continuing without organizations.")
+                return []
+            } catch APIError.authenticationFailed {
+                print("Organizations endpoint auth failed. Continuing without organizations.")
+                return []
+            } catch {
+                print("Organizations endpoint failed: \(error). Continuing without organizations.")
+                return []
+            }
+        }
+
+        func fetchAllUsersGracefully() async -> [User] {
+            do {
+                return try await fetchAllUsers()
+            } catch APIError.serverError(let statusCode, _) where statusCode == 401 || statusCode == 403 || statusCode == 404 {
+                print("Users endpoint forbidden (\(statusCode)). Continuing without user list.")
+                return []
+            } catch APIError.authenticationFailed {
+                print("Users endpoint auth failed. Continuing without user list.")
+                return []
+            } catch {
+                print("Users endpoint failed: \(error). Continuing without user list.")
+                return []
+            }
+        }
+
+        // MARK: - Attachments
+        func downloadAttachment(ticketId: Int, articleId: Int, attachment: Attachment) async throws -> URL {
+            let endpoint = "ticket_attachment/\(ticketId)/\(articleId)/\(attachment.id)"
+            let request = try createRequest(for: endpoint)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+            if httpResponse.statusCode == 401 { throw APIError.authenticationFailed }
+            guard (200...299).contains(httpResponse.statusCode) else {
+                throw APIError.serverError(statusCode: httpResponse.statusCode, message: String(data: data, encoding: .utf8))
+            }
+
+            let tempDir = FileManager.default.temporaryDirectory
+                .appendingPathComponent("zammad_attachments", isDirectory: true)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            let fileURL = tempDir.appendingPathComponent("\(attachment.id)_\(attachment.filename)")
+            try? FileManager.default.removeItem(at: fileURL)
+            try data.write(to: fileURL, options: .atomic)
+            return fileURL
         }
     }

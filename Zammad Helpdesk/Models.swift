@@ -95,6 +95,59 @@ struct TicketArticle: Identifiable, Codable, Hashable {
     let created_at: Date
     let updated_at: Date
     let updated_by_id: Int
+    let attachments: [Attachment]?
+}
+
+struct Attachment: Identifiable, Codable, Hashable {
+    let id: Int
+    let filename: String
+    let size: String?
+    let preferences: Preferences?
+
+    struct Preferences: Codable, Hashable {
+        let contentType: String?
+        let mimeType: String?
+        let contentID: String?
+
+        enum CodingKeys: String, CodingKey {
+            case contentType = "Content-Type"
+            case mimeType = "Mime-Type"
+            case contentID = "Content-ID"
+        }
+    }
+
+    var resolvedMimeType: String {
+        preferences?.mimeType ?? preferences?.contentType ?? "application/octet-stream"
+    }
+
+    /// Returns the bare Content-ID (without surrounding angle brackets) used for inline `cid:` references.
+    var contentIDValue: String? {
+        guard let raw = preferences?.contentID else { return nil }
+        let trimmed = raw.trimmingCharacters(in: CharacterSet(charactersIn: "<> \""))
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    var isInline: Bool {
+        contentIDValue != nil
+    }
+
+    var sizeFormatted: String {
+        guard let size, let bytes = Int64(size) else { return "" }
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
+    var systemIconName: String {
+        let type = resolvedMimeType.lowercased()
+        if type.hasPrefix("image/") { return "photo" }
+        if type.hasPrefix("video/") { return "video" }
+        if type.hasPrefix("audio/") { return "waveform" }
+        if type.contains("pdf") { return "doc.richtext" }
+        if type.contains("zip") || type.contains("compressed") { return "doc.zipper" }
+        if type.contains("word") || type.contains("msword") { return "doc.text" }
+        if type.contains("sheet") || type.contains("excel") { return "tablecells" }
+        if type.contains("presentation") || type.contains("powerpoint") { return "rectangle.on.rectangle" }
+        return "doc"
+    }
 }
 
 struct User: Identifiable, Codable, Hashable {
@@ -177,10 +230,51 @@ struct ArticleCreationPayload: Codable {
     var subject: String
     var isInternal: Bool
     var type: String?
+    var attachments: [AttachmentUploadPayload]?
 
     enum CodingKeys: String, CodingKey {
-        case ticket_id, body, to, subject, type
+        case ticket_id, body, to, subject, type, attachments
         case isInternal = "internal"
+    }
+}
+
+struct AttachmentUploadPayload: Codable, Hashable {
+    var filename: String
+    var data: String
+    var mimeType: String
+
+    enum CodingKeys: String, CodingKey {
+        case filename, data
+        case mimeType = "mime-type"
+    }
+}
+
+struct AttachmentDraft: Identifiable, Hashable {
+    let id = UUID()
+    var filename: String
+    var data: Data
+    var mimeType: String
+
+    var sizeFormatted: String {
+        ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file)
+    }
+
+    var systemIconName: String {
+        let type = mimeType.lowercased()
+        if type.hasPrefix("image/") { return "photo" }
+        if type.hasPrefix("video/") { return "video" }
+        if type.hasPrefix("audio/") { return "waveform" }
+        if type.contains("pdf") { return "doc.richtext" }
+        if type.contains("zip") || type.contains("compressed") { return "doc.zipper" }
+        return "doc"
+    }
+
+    var uploadPayload: AttachmentUploadPayload {
+        AttachmentUploadPayload(
+            filename: filename,
+            data: data.base64EncodedString(),
+            mimeType: mimeType
+        )
     }
 }
 

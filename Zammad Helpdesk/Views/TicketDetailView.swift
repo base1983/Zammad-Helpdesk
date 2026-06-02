@@ -1,15 +1,16 @@
 import SwiftUI
+import QuickLook
 
 struct TicketDetailView: View {
     let ticketID: Int
     @ObservedObject var viewModel: TicketViewModel
-    
+
     @State private var ticket: Ticket?
     @State private var articles: [TicketArticle] = []
     @State private var timeAccountings: [TimeAccounting] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
-    
+
     @State private var isShowingEditSheet = false
     @State private var isShowingReplySheet = false
     @State private var isShowingTimeSheet = false
@@ -17,6 +18,10 @@ struct TicketDetailView: View {
     @State private var optionalCustomerId: Int? = nil
     @State private var showPendingTimePicker = false
     @State private var pendingTime = Date()
+
+    @State private var previewURL: URL?
+    @State private var downloadingAttachmentId: Int?
+    @State private var attachmentError: String?
     
     // Programmatic navigation state to fix VStack List row issues
     @State private var isEditingStatus = false
@@ -91,6 +96,7 @@ struct TicketDetailView: View {
         .sheet(isPresented: $showPendingTimePicker) {
             pendingTimePickerView
         }
+        .quickLookPreview($previewURL)
         .navigationDestination(isPresented: $isEditingStatus) {
             if let ticketBinding = Binding($ticket) {
                 PickerEditView(
@@ -212,7 +218,12 @@ struct TicketDetailView: View {
                                 Spacer()
                                 Text(article.created_at.formatted(date: .numeric, time: .shortened)).font(.caption).foregroundColor(.secondary)
                             }
-                            Text(article.body.strippingHTML()).padding(.top, 4)
+                            RichArticleBodyView(article: article, ticketId: ticketID)
+                                .padding(.top, 4)
+
+                            if let attachments = article.attachments?.filter({ !$0.isInline }), !attachments.isEmpty {
+                                attachmentsView(for: article, attachments: attachments)
+                            }
                         }
                         .padding(.vertical, 8)
                         .listRowBackground(VisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial)))
@@ -227,6 +238,72 @@ struct TicketDetailView: View {
                 viewModel.updateApplicationBadge()
             }
         }
+
+    @ViewBuilder
+    private func attachmentsView(for article: TicketArticle, attachments: [Attachment]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("attachments".localized())
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.top, 4)
+            ForEach(attachments) { attachment in
+                Button {
+                    Task { await downloadAndPreview(attachment: attachment, articleId: article.id) }
+                } label: {
+                    HStack(spacing: 10) {
+                        if downloadingAttachmentId == attachment.id {
+                            ProgressView().frame(width: 22)
+                        } else {
+                            Image(systemName: attachment.systemIconName)
+                                .foregroundColor(.accentColor)
+                                .frame(width: 22)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(attachment.filename)
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            if !attachment.sizeFormatted.isEmpty {
+                                Text(attachment.sizeFormatted)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: "arrow.down.circle")
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.gray.opacity(0.12))
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(downloadingAttachmentId != nil)
+            }
+            if let attachmentError {
+                Text(attachmentError)
+                    .font(.caption2)
+                    .foregroundColor(.red)
+            }
+        }
+    }
+
+    private func downloadAndPreview(attachment: Attachment, articleId: Int) async {
+        guard downloadingAttachmentId == nil else { return }
+        downloadingAttachmentId = attachment.id
+        attachmentError = nil
+        defer { downloadingAttachmentId = nil }
+        do {
+            let url = try await viewModel.downloadAttachment(attachment, articleId: articleId, ticketId: ticketID)
+            previewURL = url
+        } catch {
+            attachmentError = error.localizedDescription
+        }
+    }
 
     private var totalTimeSpent: String {
         let total = timeAccountings.reduce(0.0) { $0 + (Double($1.time_unit) ?? 0.0) }
@@ -295,7 +372,7 @@ struct TicketDetailView: View {
             async let articlesTask = ZammadAPIService.shared.fetchArticles(for: ticketID)
             async let timeAccountingsTask = ZammadAPIService.shared.fetchTimeAccountingsGracefully(for: ticketID)
             
-            let (ticketResult, articlesResult, timeAccountingsResult) = await (try ticketTask, try articlesTask, try timeAccountingsTask)
+            let (ticketResult, articlesResult, timeAccountingsResult) = await (try ticketTask, try articlesTask, timeAccountingsTask)
             
             self.ticket = ticketResult
             self.articles = articlesResult

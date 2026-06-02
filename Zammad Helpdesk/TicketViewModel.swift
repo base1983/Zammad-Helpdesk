@@ -41,8 +41,11 @@ class TicketViewModel: ObservableObject {
     }
     
     var agentUsers: [User] {
-        guard let agentRoleID = roles.first(where: { $0.name == "Agent" })?.id else { return [] }
-        return allUsers.filter { $0.role_ids?.contains(agentRoleID) ?? false }
+        if let agentRoleID = roles.first(where: { $0.name == "Agent" })?.id {
+            return allUsers.filter { $0.role_ids?.contains(agentRoleID) ?? false }
+        }
+        // Fallback when the roles endpoint is forbidden: treat any active user with an email as a potential agent.
+        return allUsers.filter { $0.active && !$0.email.isEmpty }
     }
     
     // Public Functions
@@ -110,18 +113,32 @@ class TicketViewModel: ObservableObject {
         }
     
     private func loadMetadata() async throws {
-        async let data = (
-            states: apiService.fetchTicketStates(),
-            priorities: apiService.fetchTicketPriorities(),
-            user: apiService.fetchCurrentUser(),
-            allUsers: apiService.fetchAllUsers(),
-            roles: apiService.fetchRoles(),
-            groups: apiService.fetchGroups(),
-            organizations: apiService.fetchOrganizations(),
-            timeTypes: apiService.fetchTimeAccountingTypesGracefully()
-        )
-        let loaded = try await data
-        (ticketStates, ticketPriorities, currentUser, allUsers, roles, groups, organizations, timeAccountingTypes) = loaded
+        async let statesTask = apiService.fetchTicketStates()
+        async let prioritiesTask = apiService.fetchTicketPriorities()
+        async let userTask = apiService.fetchCurrentUser()
+        async let usersTask = apiService.fetchAllUsersGracefully()
+        async let rolesTask = apiService.fetchRolesGracefully()
+        async let groupsTask = apiService.fetchGroupsGracefully()
+        async let orgsTask = apiService.fetchOrganizationsGracefully()
+        async let timeTypesTask = apiService.fetchTimeAccountingTypesGracefully()
+
+        let loadedStates = try await statesTask
+        let loadedPriorities = try await prioritiesTask
+        let loadedUser = try await userTask
+        let loadedAllUsers = await usersTask
+        let loadedRoles = await rolesTask
+        let loadedGroups = await groupsTask
+        let loadedOrgs = await orgsTask
+        let loadedTypes = await timeTypesTask
+
+        ticketStates = loadedStates
+        ticketPriorities = loadedPriorities
+        currentUser = loadedUser
+        allUsers = loadedAllUsers
+        roles = loadedRoles
+        groups = loadedGroups
+        organizations = loadedOrgs
+        timeAccountingTypes = loadedTypes
         isTimeAccountingEnabled = !timeAccountingTypes.isEmpty
     }
 
@@ -229,8 +246,16 @@ class TicketViewModel: ObservableObject {
         }
     }
     
-    func sendReply(for ticket: Ticket, with body: String, subject: String, recipient: String, articleToReplyTo: TicketArticle?) async throws {
-        let payload = ArticleCreationPayload(ticket_id: ticket.id, body: body, to: recipient, subject: subject, isInternal: false, type: "email")
+    func sendReply(for ticket: Ticket, with body: String, subject: String, recipient: String, articleToReplyTo: TicketArticle?, attachments: [AttachmentDraft] = []) async throws {
+        let payload = ArticleCreationPayload(
+            ticket_id: ticket.id,
+            body: body,
+            to: recipient,
+            subject: subject,
+            isInternal: false,
+            type: "email",
+            attachments: attachments.isEmpty ? nil : attachments.map(\.uploadPayload)
+        )
         _ = try await apiService.createArticle(payload: payload)
     }
     
@@ -251,9 +276,21 @@ class TicketViewModel: ObservableObject {
         await refreshAllData()
     }
     
-    func addInternalNote(for ticket: Ticket, with body: String) async throws {
-        let payload = ArticleCreationPayload(ticket_id: ticket.id, body: body, to: "", subject: ticket.title, isInternal: true, type: "note")
+    func addInternalNote(for ticket: Ticket, with body: String, attachments: [AttachmentDraft] = []) async throws {
+        let payload = ArticleCreationPayload(
+            ticket_id: ticket.id,
+            body: body,
+            to: "",
+            subject: ticket.title,
+            isInternal: true,
+            type: "note",
+            attachments: attachments.isEmpty ? nil : attachments.map(\.uploadPayload)
+        )
         _ = try await apiService.createArticle(payload: payload)
+    }
+
+    func downloadAttachment(_ attachment: Attachment, articleId: Int, ticketId: Int) async throws -> URL {
+        try await apiService.downloadAttachment(ticketId: ticketId, articleId: articleId, attachment: attachment)
     }
     
     func addSpentTime(for ticket: Ticket, time: String, typeId: Int) async throws {

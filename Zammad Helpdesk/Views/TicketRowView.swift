@@ -8,6 +8,7 @@ struct TicketRowView: View {
     let statusColor: Color
     let priorityColor: Color
     @ObservedObject var viewModel: TicketViewModel
+    @ObservedObject private var drafts = DraftManager.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -21,6 +22,12 @@ struct TicketRowView: View {
                     .font(.headline)
                     .lineLimit(1)
                 Spacer()
+                if drafts.hasDraft(for: ticket.id) {
+                    Image(systemName: "square.and.pencil")
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                        .accessibilityLabel("draft_indicator".localized())
+                }
                 Text("#\(ticket.number)")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
