@@ -67,16 +67,27 @@ async function lookupDeviceToken(proxyUserID) {
 }
 
 // Send a chat push via the existing APNs provider.
-// message = { title, body, payload } where payload holds custom keys
-// (chat_from_user_id and, when relevant, ticketID for DeepLinkManager).
+// message = { title, body, bodyLocKey, bodyLocArgs, payload }.
+// When bodyLocKey is set, the body is sent as an APNS loc-key so the app
+// localizes it on-device (per device language) via its Localizable.strings;
+// `body` is only a fallback for clients missing the key. payload holds custom
+// keys (chat_from_user_id and, when relevant, ticketID for DeepLinkManager).
 async function sendChatPush(deviceToken, message) {
     const notification = new apn.Notification();
     notification.expiry = Math.floor(Date.now() / 1000) + 3600;
     notification.badge = 1;
     notification.sound = 'ping.aiff';
-    notification.alert = { title: message.title, body: message.body };
-    notification.payload = message.payload || {};
     notification.topic = apnConfig.bundleId;
+    notification.payload = message.payload || {};
+    if (message.title) notification.title = message.title;
+    if (message.bodyLocKey) {
+        notification.locKey = message.bodyLocKey;
+        if (Array.isArray(message.bodyLocArgs) && message.bodyLocArgs.length) {
+            notification.locArgs = message.bodyLocArgs;
+        }
+    } else {
+        notification.body = message.body;
+    }
     const result = await apnProvider.send(notification, deviceToken);
     if (result.failed.length > 0) {
         console.error('[Chat][APNs] Failed deliveries:', JSON.stringify(result.failed));

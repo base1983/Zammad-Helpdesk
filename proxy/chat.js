@@ -298,13 +298,16 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
                     const deviceToken = await lookupDeviceToken(recipient.proxy_user_id);
                     if (deviceToken) {
                         // Never put the message body in the push — it's E2E-encrypted
-                        // ciphertext. Use a generic alert; the app opens the conversation
-                        // via chat_from_user_id (or the ticket via ticketID).
+                        // ciphertext. Use a generic, localized alert; the app opens the
+                        // conversation via chat_from_user_id (or the ticket via ticketID).
+                        // bodyLocKey is an APNS loc-key resolved by the app's own
+                        // Localizable.strings, so the text follows the device language.
                         const payload = { chat_from_user_id: me.id };
                         if (ticket_id) payload.ticketID = ticket_id;
                         sendPush(deviceToken, {
                             title: me.name,
-                            body: 'New message',
+                            bodyLocKey: 'chat_new_message',
+                            body: 'New message', // fallback if the app lacks the loc-key
                             payload,
                         }).catch((e) => console.error('[Chat] push failed:', e.message));
                     }
