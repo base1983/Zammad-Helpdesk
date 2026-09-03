@@ -38,10 +38,19 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
                     name VARCHAR(255) NOT NULL,
                     email VARCHAR(255),
                     proxy_user_id VARCHAR(255),
+                    public_key TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE KEY uniq_instance_user (instance_url, zammad_user_id)
                 )
             `);
+            // Migration: add public_key to a pre-existing table (v2, E2E encryption).
+            try {
+                await conn.query('ALTER TABLE chat_users ADD COLUMN public_key TEXT');
+                console.log("[Chat] Added 'public_key' column to chat_users.");
+            } catch (e) {
+                // Duplicate column (already migrated) is expected — ignore it.
+                if (!/duplicate column/i.test(e.message)) throw e;
+            }
             await conn.query(`
                 CREATE TABLE IF NOT EXISTS chat_messages (
                     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -73,6 +82,7 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
         zammad_user_id: u.zammad_user_id,
         name: u.name,
         email: u.email,
+        public_key: u.public_key != null ? u.public_key : null,
     });
 
     const toMessageJson = (m) => ({
@@ -143,16 +153,16 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
 
     // POST /register — upsert the caller in the chat directory.
     router.post('/register', async (req, res) => {
-        const { name, email, proxy_user_id } = req.body || {};
+        const { name, email, proxy_user_id, public_key } = req.body || {};
         if (!name) return res.status(400).json({ error: 'name is required.' });
         let conn;
         try {
             conn = await pool.getConnection();
             await conn.query(`
-                INSERT INTO chat_users (instance_url, zammad_user_id, name, email, proxy_user_id)
-                VALUES (?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), proxy_user_id = VALUES(proxy_user_id)
-            `, [req.zammad.instanceUrl, req.zammad.userId, name, email || null, proxy_user_id || null]);
+                INSERT INTO chat_users (instance_url, zammad_user_id, name, email, proxy_user_id, public_key)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), proxy_user_id = VALUES(proxy_user_id), public_key = VALUES(public_key)
+            `, [req.zammad.instanceUrl, req.zammad.userId, name, email || null, proxy_user_id || null, public_key || null]);
             const rows = await conn.query(
                 'SELECT id FROM chat_users WHERE instance_url = ? AND zammad_user_id = ?',
                 [req.zammad.instanceUrl, req.zammad.userId]
@@ -287,11 +297,14 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
                 try {
                     const deviceToken = await lookupDeviceToken(recipient.proxy_user_id);
                     if (deviceToken) {
+                        // Never put the message body in the push — it's E2E-encrypted
+                        // ciphertext. Use a generic alert; the app opens the conversation
+                        // via chat_from_user_id (or the ticket via ticketID).
                         const payload = { chat_from_user_id: me.id };
                         if (ticket_id) payload.ticketID = ticket_id;
                         sendPush(deviceToken, {
                             title: me.name,
-                            body: String(body).length > 150 ? String(body).substring(0, 150) + '...' : String(body),
+                            body: 'New message',
                             payload,
                         }).catch((e) => console.error('[Chat] push failed:', e.message));
                     }
