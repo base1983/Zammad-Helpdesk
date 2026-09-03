@@ -25,22 +25,36 @@ try {
 const { apnConfig, dbConfig } = config;
 
 // --- APNs Setup ---
-let apnProvider;
+// A device token belongs to exactly one environment: TestFlight/App Store builds
+// register PRODUCTION tokens (api.push.apple.com), Xcode-on-device builds register
+// SANDBOX tokens (api.sandbox.push.apple.com). The wrong host is rejected with
+// 400 BadDeviceToken. The same .p8 token-auth key works for both, so we keep a
+// provider for each and, per send, try production first and fall back to sandbox
+// on BadDeviceToken — one code path serves both environments.
+let apnProviderProd, apnProviderSandbox;
 try {
-    const isProduction = apnConfig.production === true;
-    const apnOptions = {
-        token: {
-            key: fs.readFileSync(apnConfig.keyPath),
-            keyId: apnConfig.keyId,
-            teamId: apnConfig.teamId
-        },
-        production: isProduction
-    };
-    apnProvider = new apn.Provider(apnOptions);
-    console.log(`Successfully initialized APNs Provider in ${isProduction ? 'PRODUCTION' : 'SANDBOX'} mode.`);
+    const apnKey = fs.readFileSync(apnConfig.keyPath);
+    const tokenAuth = { key: apnKey, keyId: apnConfig.keyId, teamId: apnConfig.teamId };
+    apnProviderProd = new apn.Provider({ token: tokenAuth, production: true });
+    apnProviderSandbox = new apn.Provider({ token: tokenAuth, production: false });
+    console.log("Successfully initialized APNs Providers (production + sandbox).");
 } catch (error) {
     console.error("---!! APNs Initialization Failed !! ---", error);
     process.exit(1);
+}
+
+// Send a notification, trying production first and retrying against sandbox when
+// Apple reports BadDeviceToken (i.e. the token is actually a development token).
+async function sendApns(notification, deviceToken) {
+    let result = await apnProviderProd.send(notification, deviceToken);
+    const badToken = result.failed.some(f =>
+        String(f.status) === '400' && f.response && f.response.reason === 'BadDeviceToken'
+    );
+    if (badToken) {
+        console.log('[APNs] BadDeviceToken on production — retrying via sandbox.');
+        result = await apnProviderSandbox.send(notification, deviceToken);
+    }
+    return result;
 }
 
 // --- Database Setup ---
@@ -88,7 +102,7 @@ async function sendChatPush(deviceToken, message) {
     } else {
         notification.body = message.body;
     }
-    const result = await apnProvider.send(notification, deviceToken);
+    const result = await sendApns(notification, deviceToken);
     if (result.failed.length > 0) {
         console.error('[Chat][APNs] Failed deliveries:', JSON.stringify(result.failed));
     }
@@ -231,8 +245,8 @@ app.post('/api/webhook/:proxyUserID', async (req, res) => {
     console.log(`[APNs] Content: Title="${title}", PayloadID=${ticketId}`);
 
     try {
-        const result = await apnProvider.send(notification, registration.deviceToken);
-        
+        const result = await sendApns(notification, registration.deviceToken);
+
         // Check op fouten van Apple (bijv. BadDeviceToken)
         if (result.failed.length > 0) {
             console.error('[APNs] Failed deliveries:', JSON.stringify(result.failed, null, 2));
@@ -296,7 +310,8 @@ startServer();
 // --- Graceful Shutdown ---
 process.on('SIGINT', () => {
     console.log('Shutting down...');
-    apnProvider.shutdown();
+    apnProviderProd.shutdown();
+    apnProviderSandbox.shutdown();
     pool.end();
     process.exit();
 });
