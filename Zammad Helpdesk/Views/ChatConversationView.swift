@@ -71,9 +71,18 @@ struct ChatConversationView: View {
                 .background(isMine ? Color.accentColor.opacity(0.85) : Color(.systemGray5).opacity(0.9))
                 .foregroundColor(isMine ? .white : .primary)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
-            Text(message.createdAt.formatted(date: .omitted, time: .shortened))
-                .font(.caption2)
-                .foregroundColor(.secondary)
+            HStack(spacing: 4) {
+                Image(systemName: message.isEncrypted ? "lock.fill" : "lock.open.fill")
+                    .foregroundColor(message.isEncrypted ? .secondary : .orange)
+                    .accessibilityLabel((message.isEncrypted ? "chat_encrypted_label" : "chat_unencrypted_label").localized())
+                if !message.isEncrypted {
+                    Text("chat_unencrypted_label".localized())
+                        .foregroundColor(.orange)
+                }
+                Text(message.createdAt.formatted(date: .omitted, time: .shortened))
+                    .foregroundColor(.secondary)
+            }
+            .font(.caption2)
         }
         .frame(maxWidth: .infinity, alignment: isMine ? .trailing : .leading)
     }
@@ -104,7 +113,7 @@ struct ChatConversationView: View {
 
     private func loadInitial() async {
         do {
-            messages = try await chatService.fetchMessages(with: partner.id)
+            messages = try await chatService.fetchMessages(with: partner)
             await chatService.markRead(partnerId: partner.id)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -115,7 +124,7 @@ struct ChatConversationView: View {
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: pollInterval)
             guard !Task.isCancelled else { return }
-            if let new = try? await chatService.fetchMessages(with: partner.id, since: messages.last?.id), !new.isEmpty {
+            if let new = try? await chatService.fetchMessages(with: partner, since: messages.last?.id), !new.isEmpty {
                 messages.append(contentsOf: new)
                 await chatService.markRead(partnerId: partner.id)
             }
@@ -129,7 +138,7 @@ struct ChatConversationView: View {
         errorMessage = nil
         Task {
             do {
-                let message = try await chatService.send(to: partner.id, body: body)
+                let message = try await chatService.send(to: partner, body: body)
                 messages.append(message)
                 draft = ""
             } catch {

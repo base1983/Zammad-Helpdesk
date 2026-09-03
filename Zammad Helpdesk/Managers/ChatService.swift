@@ -20,6 +20,15 @@ struct ChatMessage: Codable, Identifiable, Hashable {
     let ticketId: Int?       // Optional ticket reference for handoffs
     let ticketNumber: String?
     let createdAt: Date
+
+    /// Whether this message travelled end-to-end encrypted. Not part of the
+    /// wire format — set locally from the `enc1:` prefix on decrypt (received)
+    /// or to `true` on send (we only send when we can encrypt).
+    var isEncrypted: Bool = false
+
+    enum CodingKeys: String, CodingKey {
+        case id, fromUserId, toUserId, body, ticketId, ticketNumber, createdAt
+    }
 }
 
 struct ChatConversation: Codable, Identifiable {
@@ -33,11 +42,13 @@ enum ChatError: Error, LocalizedError {
     case notRegistered
     case serverUnavailable
     case serverError(statusCode: Int)
+    case encryptionUnavailable
 
     var errorDescription: String? {
         switch self {
         case .notRegistered, .serverUnavailable: return "chat_unavailable".localized()
         case .serverError(let code): return String(format: "chat_server_error".localized(), code)
+        case .encryptionUnavailable: return "chat_encryption_unavailable".localized()
         }
     }
 }
@@ -70,6 +81,11 @@ enum ChatCrypto {
 
     static var publicKeyBase64: String {
         privateKey().publicKey.rawRepresentation.base64EncodedString()
+    }
+
+    /// Whether a wire body is an encrypted payload (has the `enc1:` prefix).
+    static func isEncrypted(_ body: String) -> Bool {
+        body.hasPrefix(prefix)
     }
 
     private static func symmetricKey(partnerPublicKeyBase64: String) throws -> SymmetricKey {
@@ -191,6 +207,8 @@ final class ChatService: ObservableObject {
             "proxy_user_id": SettingsManager.shared.getProxyUserID() ?? "",
             "public_key": ChatCrypto.publicKeyBase64
         ]
+        let proxyUserID = SettingsManager.shared.getProxyUserID() ?? ""
+        print("DEBUG: [Chat] Registreren — proxy user ID \(proxyUserID.isEmpty ? "ONTBREEKT (geen pushes mogelijk)" : "gekoppeld") ")
         let request = try makeRequest(path: "register", method: "POST", body: body)
         let response: RegisterResponse = try await perform(request)
         myChatUserId = response.chatUserId
@@ -210,6 +228,7 @@ final class ChatService: ObservableObject {
         for index in conversations.indices {
             if let last = conversations[index].lastMessage {
                 var decrypted = last
+                decrypted.isEncrypted = ChatCrypto.isEncrypted(last.body)
                 decrypted.body = ChatCrypto.decrypt(last.body, partnerPublicKey: conversations[index].partner.publicKey)
                 conversations[index].lastMessage = decrypted
             }
@@ -226,19 +245,22 @@ final class ChatService: ObservableObject {
         let request = try makeRequest(path: "messages", queryItems: query)
         var messages: [ChatMessage] = try await perform(request)
         for index in messages.indices {
-            messages[index].body = ChatCrypto.decrypt(messages[index].body, partnerPublicKey: partner.publicKey)
+            let raw = messages[index].body
+            messages[index].isEncrypted = ChatCrypto.isEncrypted(raw)
+            messages[index].body = ChatCrypto.decrypt(raw, partnerPublicKey: partner.publicKey)
         }
         return messages
     }
 
-    /// Sends a message, end-to-end encrypted when the partner has published a
-    /// public key (plaintext fallback for partners on older app versions).
+    /// Sends a message, always end-to-end encrypted. Refuses to send (throws
+    /// `ChatError.encryptionUnavailable`) when the partner has not published a
+    /// public key, so plaintext never reaches the proxy — no silent downgrade.
     @discardableResult
     func send(to partner: ChatUser, body: String, ticket: Ticket? = nil) async throws -> ChatMessage {
-        var wireBody = body
-        if let partnerKey = partner.publicKey, !partnerKey.isEmpty {
-            wireBody = try ChatCrypto.encrypt(body, partnerPublicKey: partnerKey)
+        guard let partnerKey = partner.publicKey, !partnerKey.isEmpty else {
+            throw ChatError.encryptionUnavailable
         }
+        let wireBody = try ChatCrypto.encrypt(body, partnerPublicKey: partnerKey)
         var payload: [String: Any] = [
             "to_user_id": partner.id,
             "body": wireBody
@@ -249,7 +271,8 @@ final class ChatService: ObservableObject {
         }
         let request = try makeRequest(path: "messages", method: "POST", body: payload)
         var message: ChatMessage = try await perform(request)
-        message.body = body // return the plaintext for local display
+        message.body = body        // return the plaintext for local display
+        message.isEncrypted = true // reached only when the body was encrypted
         return message
     }
 
