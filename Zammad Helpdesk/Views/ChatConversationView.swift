@@ -187,6 +187,9 @@ struct ChatConversationView: View {
                 }
                 Text(message.createdAt.formatted(date: .omitted, time: .shortened))
                     .foregroundColor(theme.metaText)
+                if isMine && message.deleted != true {
+                    DeliveryTicks(status: message.deliveryStatus, neutral: theme.metaText)
+                }
             }
             .font(.caption2)
         }
@@ -441,6 +444,41 @@ struct ChatConversationView: View {
                 errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }
             isSending = false
+        }
+    }
+}
+
+// MARK: - Delivery ticks
+
+/// WhatsApp-style status ticks for own messages: one grey check = sent,
+/// two grey checks = delivered, two blue checks = read.
+private struct DeliveryTicks: View {
+    let status: ChatMessageStatus
+    let neutral: Color
+
+    private var color: Color {
+        status == .read ? Color(red: 0.20, green: 0.60, blue: 1.0) : neutral
+    }
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Image(systemName: "checkmark")
+            if status != .sent {
+                Image(systemName: "checkmark")
+                    .offset(x: 4)
+            }
+        }
+        .font(.caption2.weight(.bold))
+        .foregroundColor(color)
+        .padding(.trailing, status == .sent ? 0 : 4)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var accessibilityText: String {
+        switch status {
+        case .sent: "chat_status_sent".localized()
+        case .delivered: "chat_status_delivered".localized()
+        case .read: "chat_status_read".localized()
         }
     }
 }

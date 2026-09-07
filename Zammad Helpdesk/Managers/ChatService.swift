@@ -54,6 +54,8 @@ struct ChatMessage: Codable, Identifiable, Hashable {
     let attachmentMime: String?
     let createdAt: Date
     var deleted: Bool?
+    var deliveredAt: Date?
+    var readAt: Date?
 
     /// v4 direct messages: the public key of the device that sent this message,
     /// and this device's wrapped copy of the random body key. Both are nil for
@@ -69,7 +71,7 @@ struct ChatMessage: Codable, Identifiable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id, fromUserId, toUserId, groupId, fromUserName, body, ticketId, ticketNumber
-        case attachmentId, attachmentName, attachmentMime, createdAt, deleted
+        case attachmentId, attachmentName, attachmentMime, createdAt, deleted, deliveredAt, readAt
         case senderPublicKey, wrappedKey
         case isEncrypted // persisted in the local history cache; stripped for wire payloads
     }
@@ -89,9 +91,26 @@ struct ChatMessage: Codable, Identifiable, Hashable {
         attachmentMime = try container.decodeIfPresent(String.self, forKey: .attachmentMime)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         deleted = try container.decodeIfPresent(Bool.self, forKey: .deleted)
+        deliveredAt = try container.decodeIfPresent(Date.self, forKey: .deliveredAt)
+        readAt = try container.decodeIfPresent(Date.self, forKey: .readAt)
         senderPublicKey = try container.decodeIfPresent(String.self, forKey: .senderPublicKey)
         wrappedKey = try container.decodeIfPresent(String.self, forKey: .wrappedKey)
         isEncrypted = try container.decodeIfPresent(Bool.self, forKey: .isEncrypted) ?? false
+    }
+}
+
+/// WhatsApp-style delivery ladder for our own messages.
+enum ChatMessageStatus {
+    case sent       // stored on the proxy
+    case delivered  // fetched by the recipient's device
+    case read       // recipient opened the conversation
+}
+
+extension ChatMessage {
+    var deliveryStatus: ChatMessageStatus {
+        if readAt != nil { return .read }
+        if deliveredAt != nil { return .delivered }
+        return .sent
     }
 }
 
