@@ -605,7 +605,9 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
                     ORDER BY m.id DESC LIMIT 1
                 `, [me.deviceRowId, me.id, pid, pid, me.id]);
                 const urows = await conn.query(
-                    'SELECT COUNT(*) AS c FROM chat_messages WHERE group_id IS NULL AND from_user_id = ? AND to_user_id = ? AND read_at IS NULL',
+                    // Tombstones don't count: a badge that opens onto "Message
+                    // deleted" is noise, not news.
+                    'SELECT COUNT(*) AS c FROM chat_messages WHERE group_id IS NULL AND deleted = 0 AND from_user_id = ? AND to_user_id = ? AND read_at IS NULL',
                     [pid, me.id]
                 );
                 result.push({
@@ -626,7 +628,7 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
                 `, [me.deviceRowId, group.id]);
                 const lastRead = await lastReadMessageId(conn, group.id, me.id);
                 const urows = await conn.query(
-                    'SELECT COUNT(*) AS c FROM chat_messages WHERE group_id = ? AND from_user_id <> ? AND id > ?',
+                    'SELECT COUNT(*) AS c FROM chat_messages WHERE group_id = ? AND deleted = 0 AND from_user_id <> ? AND id > ?',
                     [group.id, me.id, lastRead]
                 );
                 result.push({

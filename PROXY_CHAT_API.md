@@ -635,6 +635,11 @@ Deleting an already-tombstoned message answers `{ "ok": true }` again rather
 than erroring, so a retry after a dropped connection is harmless; an unknown id
 is `404`.
 
+Tombstones are excluded from the unread counts in `/conversations` (`deleted = 0`
+in both the direct and the group counter): a badge that opens onto "Message
+deleted" is noise. The tombstone itself still comes back from `/messages`, so
+the conversation shows what happened.
+
 Propagation note: clients poll with `since=<last id>`, so an already-fetched
 message disappears from other devices when they next reload the conversation
 (fresh open), not mid-poll. Acceptable for v3.1.
