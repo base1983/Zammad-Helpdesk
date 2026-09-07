@@ -150,9 +150,9 @@ struct ChatConversationView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             }
-            if let attachmentId = message.attachmentId {
+            if message.attachmentId != nil {
                 ChatAttachmentView(
-                    attachmentId: attachmentId,
+                    message: message,
                     filename: message.attachmentName ?? "attachment",
                     mimeType: message.attachmentMime ?? "application/octet-stream",
                     target: target,
@@ -386,7 +386,9 @@ struct ChatConversationView: View {
 /// Renders an encrypted chat attachment: inline thumbnail for images, a
 /// document chip for other files. Tapping opens a Quick Look preview.
 private struct ChatAttachmentView: View {
-    let attachmentId: Int
+    // The whole message, not just the attachment id: an attachment is sealed
+    // with its message's content key, which only the message carries.
+    let message: ChatMessage
     let filename: String
     let mimeType: String
     let target: ChatTarget
@@ -437,17 +439,17 @@ private struct ChatAttachmentView: View {
     }
 
     private func loadImage() async {
-        guard let data = try? await ChatService.shared.downloadAttachment(id: attachmentId, for: target) else { return }
+        guard let data = try? await ChatService.shared.downloadAttachment(for: message, in: target) else { return }
         image = UIImage(data: data)
     }
 
     private func preview() async {
         isLoading = true
         defer { isLoading = false }
-        guard let data = try? await ChatService.shared.downloadAttachment(id: attachmentId, for: target) else { return }
+        guard let data = try? await ChatService.shared.downloadAttachment(for: message, in: target) else { return }
         let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("chat_attachments", isDirectory: true)
         try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-        let fileURL = tempDir.appendingPathComponent("\(attachmentId)_\(filename)")
+        let fileURL = tempDir.appendingPathComponent("\(message.attachmentId ?? 0)_\(filename)")
         try? data.write(to: fileURL, options: .atomic)
         previewURL = fileURL
     }

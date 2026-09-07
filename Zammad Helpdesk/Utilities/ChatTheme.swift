@@ -195,28 +195,34 @@ private struct ChatThemeCell: View {
     }
 }
 
-/// Miniature conversation mockup: two bubbles on the theme background.
+/// Miniature conversation mockup: bubbles on the theme background. Scales
+/// proportionally, so it works both as a tiny settings swatch and a grid card.
 struct ChatThemePreview: View {
     let theme: ChatTheme
 
     var body: some View {
-        ZStack {
-            theme.background
-            VStack(spacing: 8) {
-                Capsule()
-                    .fill(theme.partnerBubble)
-                    .frame(width: 56, height: 18)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Capsule()
-                    .fill(theme.myBubble)
-                    .frame(width: 56, height: 18)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                Capsule()
-                    .fill(theme.partnerBubble)
-                    .frame(width: 40, height: 18)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        GeometryReader { geo in
+            let bubbleWidth = geo.size.width * 0.55
+            let bubbleHeight = max(geo.size.height * 0.14, 4)
+            let inset = geo.size.width * 0.1
+            ZStack {
+                theme.background
+                VStack(spacing: bubbleHeight * 0.5) {
+                    Capsule()
+                        .fill(theme.partnerBubble)
+                        .frame(width: bubbleWidth, height: bubbleHeight)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Capsule()
+                        .fill(theme.myBubble)
+                        .frame(width: bubbleWidth, height: bubbleHeight)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    Capsule()
+                        .fill(theme.partnerBubble)
+                        .frame(width: bubbleWidth * 0.7, height: bubbleHeight)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(inset)
             }
-            .padding(12)
         }
     }
 }

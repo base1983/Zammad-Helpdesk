@@ -75,7 +75,7 @@ struct ChatListView: View {
             Text("chat_no_engineers".localized())
         }
         .sheet(isPresented: $isShowingNewGroup) {
-            NewGroupChatView(engineers: engineers, viewModel: viewModel) { group in
+            NewGroupChatView(engineers: engineers) { group in
                 selectedTarget = .group(group)
                 Task { await load() }
             }
@@ -90,7 +90,7 @@ struct ChatListView: View {
     private var conversationList: some View {
         List(conversations) { conversation in
             Button {
-                if let target = conversation.target { selectedTarget = target }
+                if let target = resolvedTarget(conversation) { selectedTarget = target }
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: conversation.group != nil ? "person.3.fill" : "person.circle.fill")
@@ -130,6 +130,15 @@ struct ChatListView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+    }
+
+    /// Prefers the full group record (with members, for @mention suggestions)
+    /// over the slim one embedded in the conversation summary.
+    private func resolvedTarget(_ conversation: ChatConversation) -> ChatTarget? {
+        if let group = conversation.group {
+            return .group(groups.first(where: { $0.id == group.id }) ?? group)
+        }
+        return conversation.target
     }
 
     private func previewText(for message: ChatMessage) -> String {
@@ -186,7 +195,6 @@ struct ChatListView: View {
 /// encryption key can't be added (the group key must be wrapped for everyone).
 struct NewGroupChatView: View {
     let engineers: [ChatUser]
-    @ObservedObject var viewModel: TicketViewModel
     let onCreated: (ChatGroup) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -196,7 +204,7 @@ struct NewGroupChatView: View {
     @State private var errorMessage: String?
 
     private var selectableEngineers: [ChatUser] {
-        engineers.filter { !($0.publicKey ?? "").isEmpty }
+        engineers.filter(\.canReceiveEncrypted)
     }
 
     var body: some View {
@@ -265,19 +273,11 @@ struct NewGroupChatView: View {
         Task {
             do {
                 let members = selectableEngineers.filter { selectedMemberIDs.contains($0.id) }
-                guard let myChatUserId = ChatService.shared.myChatUserId else { throw ChatError.notRegistered }
-                // Our own directory entry (needed to wrap the group key for ourselves).
-                let me = ChatUser(
-                    id: myChatUserId,
-                    zammadUserId: viewModel.currentUser?.id ?? 0,
-                    name: viewModel.currentUser?.fullname ?? "",
-                    email: viewModel.currentUser?.email,
-                    publicKey: ChatCrypto.publicKeyBase64
-                )
+                // The service adds us (and each of our own devices) to the group
+                // itself, from the identity it got back at registration.
                 let group = try await ChatService.shared.createGroup(
                     name: name.trimmingCharacters(in: .whitespaces),
-                    members: members,
-                    me: me
+                    members: members
                 )
                 onCreated(group)
                 dismiss()

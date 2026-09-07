@@ -3,24 +3,41 @@ import CryptoKit
 
 // MARK: - Chat Models
 
+/// One installation of the app belonging to a colleague. Each device has its own
+/// Curve25519 key pair, so an agent can run the app on an iPhone and an iPad at
+/// the same time and both can read the conversation.
+struct ChatDevice: Codable, Identifiable, Hashable {
+    let id: Int              // Proxy-assigned device id
+    let publicKey: String    // Curve25519 public key (base64)
+}
+
 /// An engineer registered for chat on the same Zammad instance.
 struct ChatUser: Codable, Identifiable, Hashable {
     let id: Int              // Proxy-assigned chat user id
     let zammadUserId: Int    // The user's id on the Zammad instance
     let name: String
     let email: String?
-    let publicKey: String?   // Curve25519 public key (base64) for E2E encryption
+    let devices: [ChatDevice]
+
+    /// Whether we can encrypt to this colleague at all — false until they have
+    /// opened the app once and published a device key.
+    var canReceiveEncrypted: Bool { !devices.isEmpty }
 }
 
 /// A group chat. The group key is end-to-end encrypted: it exists on the proxy
-/// only in wrapped form (sealed per member with the creator↔member pairwise key).
+/// only in wrapped form, sealed once per member *device* with the pairwise key
+/// between the wrapping device and that device.
 struct ChatGroup: Codable, Identifiable, Hashable {
     let id: Int
     let name: String
     let creatorId: Int
-    let creatorPublicKey: String?
     let myWrappedKey: String?
+    /// Public key of the device that wrapped our copy of the group key.
+    let wrapperPublicKey: String?
     var members: [ChatUser]?
+    /// Member devices that joined after the group was created and hold no copy
+    /// of the group key yet. Any member that can open the group re-wraps for them.
+    let devicesMissingKeys: [ChatDevice]?
 }
 
 struct ChatMessage: Codable, Identifiable, Hashable {
@@ -37,6 +54,13 @@ struct ChatMessage: Codable, Identifiable, Hashable {
     let attachmentMime: String?
     let createdAt: Date
 
+    /// v4 direct messages: the public key of the device that sent this message,
+    /// and this device's wrapped copy of the random body key. Both are nil for
+    /// group messages (which use the group key) and for a direct message that
+    /// was not addressed to this device.
+    let senderPublicKey: String?
+    let wrappedKey: String?
+
     /// Whether this message travelled end-to-end encrypted. Not part of the
     /// wire format — set locally from the `enc1:` prefix on decrypt (received)
     /// or to `true` on send (we only send when we can encrypt).
@@ -45,6 +69,7 @@ struct ChatMessage: Codable, Identifiable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, fromUserId, toUserId, groupId, fromUserName, body, ticketId, ticketNumber
         case attachmentId, attachmentName, attachmentMime, createdAt
+        case senderPublicKey, wrappedKey
         case isEncrypted // persisted in the local history cache; stripped for wire payloads
     }
 
@@ -62,6 +87,8 @@ struct ChatMessage: Codable, Identifiable, Hashable {
         attachmentName = try container.decodeIfPresent(String.self, forKey: .attachmentName)
         attachmentMime = try container.decodeIfPresent(String.self, forKey: .attachmentMime)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
+        senderPublicKey = try container.decodeIfPresent(String.self, forKey: .senderPublicKey)
+        wrappedKey = try container.decodeIfPresent(String.self, forKey: .wrappedKey)
         isEncrypted = try container.decodeIfPresent(Bool.self, forKey: .isEncrypted) ?? false
     }
 }
@@ -121,6 +148,9 @@ enum ChatError: Error, LocalizedError {
     case serverError(statusCode: Int)
     case encryptionUnavailable
     case attachmentTooLarge
+    /// The proxy answered, but not in the shape this app understands — in
+    /// practice a proxy still running the pre-v4 (one key per user) protocol.
+    case protocolMismatch
 
     var errorDescription: String? {
         switch self {
@@ -128,6 +158,7 @@ enum ChatError: Error, LocalizedError {
         case .serverError(let code): return String(format: "chat_server_error".localized(), code)
         case .encryptionUnavailable: return "chat_encryption_unavailable".localized()
         case .attachmentTooLarge: return "chat_attachment_too_large".localized()
+        case .protocolMismatch: return "chat_server_outdated".localized()
         }
     }
 }
@@ -135,19 +166,39 @@ enum ChatError: Error, LocalizedError {
 // MARK: - End-to-end encryption
 
 /// End-to-end encryption for chat bodies. Each device holds a Curve25519 key
-/// pair (private key in the Keychain, public key published via the chat
-/// directory). Direct messages use a pairwise ECDH + HKDF key; groups use a
-/// random symmetric group key that is wrapped per member with the
-/// creator↔member pairwise key. Bodies and attachments are sealed with
-/// ChaChaPoly — the proxy only ever stores ciphertext and wrapped keys.
+/// pair (private key in the Keychain, public key published per device in the
+/// chat directory). Bodies and attachments are sealed with ChaChaPoly under a
+/// symmetric content key — random per message for direct chats, long-lived per
+/// group — and that content key is wrapped for each recipient device with the
+/// pairwise ECDH + HKDF key. The proxy only ever stores ciphertext and wrapped
+/// keys.
 ///
-/// Limitations (deliberate, for simplicity): one key pair per device — a
-/// reinstall keeps the key (Keychain survives), but a *new* device generates a
-/// new key and can't read older ciphertext; there is no forward secrecy or
-/// out-of-band key verification.
+/// Each device publishes its own public key under a stable device id, so one
+/// agent can use several devices at once: a direct message body is sealed with a
+/// random message key that is wrapped for every device of the recipient and for
+/// the sender's other devices.
+///
+/// Limitations (deliberate, for simplicity): a device that registers after a
+/// message was sent can't read that message — keys are wrapped at send time for
+/// the devices known then. There is no forward secrecy and no out-of-band key
+/// verification.
 enum ChatCrypto {
     private static let keychainKey = "chat_e2e_private_key"
+    private static let deviceIdKey = "chat_device_id"
     private static let prefix = "enc1:"
+
+    /// This install's stable device id, generated once and kept in the Keychain
+    /// beside the private key so the two always travel together: a reinstall
+    /// that keeps the Keychain keeps both, and one that doesn't gets a fresh
+    /// identity rather than a device id pointing at a key we no longer hold.
+    static var deviceId: String {
+        if let existing = KeychainHelper.load(forKey: deviceIdKey), !existing.isEmpty {
+            return existing
+        }
+        let generated = UUID().uuidString
+        KeychainHelper.save(generated, forKey: deviceIdKey)
+        return generated
+    }
 
     private static func privateKey() -> Curve25519.KeyAgreement.PrivateKey {
         if let stored = KeychainHelper.load(forKey: keychainKey),
@@ -183,58 +234,49 @@ enum ChatCrypto {
         )
     }
 
-    // MARK: Direct messages (pairwise key)
+    // MARK: Content keys
+    //
+    // Both kinds of conversation seal their bodies and attachments with a random
+    // 256-bit symmetric "content key": a fresh one per message for direct chats,
+    // a long-lived group key for groups. Only the way the key is distributed
+    // differs — it is wrapped per recipient device with the pairwise ECDH key.
 
-    static func encrypt(_ plaintext: String, partnerPublicKey: String) throws -> String {
-        let key = try pairwiseKey(partnerPublicKeyBase64: partnerPublicKey)
-        let sealed = try ChaChaPoly.seal(Data(plaintext.utf8), using: key)
-        return prefix + sealed.combined.base64EncodedString()
-    }
-
-    /// Returns the plaintext for encrypted bodies, the body unchanged when it
-    /// isn't encrypted, or a placeholder when decryption fails (e.g. the
-    /// message was encrypted for a key this device no longer has).
-    static func decrypt(_ body: String, partnerPublicKey: String?) -> String {
-        guard body.hasPrefix(prefix) else { return body }
-        guard let partnerPublicKey,
-              let key = try? pairwiseKey(partnerPublicKeyBase64: partnerPublicKey) else {
-            return "chat_encrypted_placeholder".localized()
-        }
-        return open(body, with: key) ?? "chat_encrypted_placeholder".localized()
-    }
-
-    // MARK: Groups (wrapped group key)
-
-    /// A fresh random group key.
-    static func generateGroupKey() -> Data {
+    /// A fresh random content key (per-message for direct chats, per-group for groups).
+    static func generateContentKey() -> Data {
         SymmetricKey(size: .bits256).withUnsafeBytes { Data($0) }
     }
 
-    /// Wraps (seals) a group key for a member using our pairwise key with them.
-    static func wrapKey(_ groupKey: Data, forMemberPublicKey memberKey: String) throws -> String {
-        let key = try pairwiseKey(partnerPublicKeyBase64: memberKey)
-        let sealed = try ChaChaPoly.seal(groupKey, using: key)
+    /// Wraps (seals) a content key for one device, using our pairwise key with it.
+    static func wrapKey(_ contentKey: Data, forDevicePublicKey devicePublicKey: String) throws -> String {
+        let key = try pairwiseKey(partnerPublicKeyBase64: devicePublicKey)
+        let sealed = try ChaChaPoly.seal(contentKey, using: key)
         return sealed.combined.base64EncodedString()
     }
 
-    /// Unwraps our copy of a group key using the pairwise key with the creator.
-    static func unwrapKey(_ wrapped: String, creatorPublicKey: String) -> Data? {
+    /// Unwraps our copy of a content key, using our pairwise key with the device
+    /// that wrapped it.
+    static func unwrapKey(_ wrapped: String, wrapperPublicKey: String) -> Data? {
         guard let data = Data(base64Encoded: wrapped),
-              let key = try? pairwiseKey(partnerPublicKeyBase64: creatorPublicKey),
+              let key = try? pairwiseKey(partnerPublicKeyBase64: wrapperPublicKey),
               let sealed = try? ChaChaPoly.SealedBox(combined: data),
               let plain = try? ChaChaPoly.open(sealed, using: key) else { return nil }
         return plain
     }
 
-    static func encrypt(_ plaintext: String, groupKey: Data) throws -> String {
-        let sealed = try ChaChaPoly.seal(Data(plaintext.utf8), using: SymmetricKey(data: groupKey))
+    // MARK: Bodies
+
+    static func encrypt(_ plaintext: String, contentKey: Data) throws -> String {
+        let sealed = try ChaChaPoly.seal(Data(plaintext.utf8), using: SymmetricKey(data: contentKey))
         return prefix + sealed.combined.base64EncodedString()
     }
 
-    static func decrypt(_ body: String, groupKey: Data?) -> String {
+    /// Returns the plaintext for encrypted bodies, the body unchanged when it
+    /// isn't encrypted, or a placeholder when we have no key for it (e.g. the
+    /// message predates this device's registration).
+    static func decrypt(_ body: String, contentKey: Data?) -> String {
         guard body.hasPrefix(prefix) else { return body }
-        guard let groupKey else { return "chat_encrypted_placeholder".localized() }
-        return open(body, with: SymmetricKey(data: groupKey)) ?? "chat_encrypted_placeholder".localized()
+        guard let contentKey else { return "chat_encrypted_placeholder".localized() }
+        return open(body, with: SymmetricKey(data: contentKey)) ?? "chat_encrypted_placeholder".localized()
     }
 
     private static func open(_ body: String, with key: SymmetricKey) -> String? {
@@ -245,24 +287,14 @@ enum ChatCrypto {
         return text
     }
 
-    // MARK: Attachment data (always encrypted)
+    // MARK: Attachment data (always encrypted, with the message's content key)
 
-    static func encryptData(_ data: Data, partnerPublicKey: String) throws -> Data {
-        let key = try pairwiseKey(partnerPublicKeyBase64: partnerPublicKey)
-        return try ChaChaPoly.seal(data, using: key).combined
+    static func encryptData(_ data: Data, contentKey: Data) throws -> Data {
+        try ChaChaPoly.seal(data, using: SymmetricKey(data: contentKey)).combined
     }
 
-    static func decryptData(_ data: Data, partnerPublicKey: String) throws -> Data {
-        let key = try pairwiseKey(partnerPublicKeyBase64: partnerPublicKey)
-        return try ChaChaPoly.open(ChaChaPoly.SealedBox(combined: data), using: key)
-    }
-
-    static func encryptData(_ data: Data, groupKey: Data) throws -> Data {
-        try ChaChaPoly.seal(data, using: SymmetricKey(data: groupKey)).combined
-    }
-
-    static func decryptData(_ data: Data, groupKey: Data) throws -> Data {
-        try ChaChaPoly.open(ChaChaPoly.SealedBox(combined: data), using: SymmetricKey(data: groupKey))
+    static func decryptData(_ data: Data, contentKey: Data) throws -> Data {
+        try ChaChaPoly.open(ChaChaPoly.SealedBox(combined: data), using: SymmetricKey(data: contentKey))
     }
 }
 
@@ -356,6 +388,12 @@ final class ChatService: ObservableObject {
     /// Our own chat identity on the proxy, set after register().
     @Published private(set) var myChatUserId: Int?
 
+    /// This device's proxy-side id, and every device registered to our own
+    /// account — set by register(). Outgoing direct messages are wrapped for our
+    /// other devices too, so an agent's iPad can read what their iPhone sent.
+    private(set) var myChatDeviceId: Int?
+    private(set) var myDevices: [ChatDevice] = []
+
     /// Total unread messages across all conversations, for the toolbar badge.
     @Published private(set) var totalUnread = 0
 
@@ -389,6 +427,9 @@ final class ChatService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Token token=\(token)", forHTTPHeaderField: "Authorization")
         request.setValue(serverURL, forHTTPHeaderField: "X-Zammad-Url")
+        // Identifies which of our devices is calling, so the proxy can hand back
+        // the key envelopes addressed to this device.
+        request.setValue(ChatCrypto.deviceId, forHTTPHeaderField: "X-Device-Id")
         if let body {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
@@ -410,28 +451,58 @@ final class ChatService: ObservableObject {
         guard (200...299).contains(httpResponse.statusCode) else {
             throw ChatError.serverError(statusCode: httpResponse.statusCode)
         }
-        return try decoder.decode(T.self, from: data)
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch let error as DecodingError {
+            // A field we require is absent or the wrong type. The realistic cause
+            // is a proxy still speaking the pre-v4 protocol, so report that rather
+            // than Foundation's "the data couldn't be read because it is missing".
+            print("DEBUG: [Chat] Decode failed for \(T.self) at \(decodingPath(error)): \(error)")
+            throw ChatError.protocolMismatch
+        }
+    }
+
+    /// The key path Foundation choked on, for the debug log.
+    private func decodingPath(_ error: DecodingError) -> String {
+        let context: DecodingError.Context
+        switch error {
+        case .keyNotFound(let key, let ctx):
+            return (ctx.codingPath.map(\.stringValue) + [key.stringValue]).joined(separator: ".")
+        case .typeMismatch(_, let ctx), .valueNotFound(_, let ctx), .dataCorrupted(let ctx):
+            context = ctx
+        @unknown default:
+            return "unknown"
+        }
+        return context.codingPath.map(\.stringValue).joined(separator: ".")
     }
 
     // MARK: Registration & directory
 
-    /// Registers (or refreshes) our identity in the proxy's chat directory,
-    /// including our public key so colleagues can encrypt messages to us.
+    /// Registers (or refreshes) this device in the proxy's chat directory. Each
+    /// device publishes its own public key and its own push registration, so
+    /// registering on a second device leaves the first one working.
     @discardableResult
     func register(currentUser: User) async throws -> Int {
-        struct RegisterResponse: Decodable { let chatUserId: Int }
+        struct RegisterResponse: Decodable {
+            let chatUserId: Int
+            let chatDeviceId: Int
+            let devices: [ChatDevice]
+        }
         let body: [String: Any] = [
             "zammad_user_id": currentUser.id,
             "name": currentUser.fullname,
             "email": currentUser.email,
             "proxy_user_id": SettingsManager.shared.getProxyUserID() ?? "",
-            "public_key": ChatCrypto.publicKeyBase64
+            "public_key": ChatCrypto.publicKeyBase64,
+            "device_id": ChatCrypto.deviceId
         ]
         let proxyUserID = SettingsManager.shared.getProxyUserID() ?? ""
         print("DEBUG: [Chat] Registreren — proxy user ID \(proxyUserID.isEmpty ? "ONTBREEKT (geen pushes mogelijk)" : "gekoppeld") ")
         let request = try makeRequest(path: "register", method: "POST", body: body)
         let response: RegisterResponse = try await perform(request)
         myChatUserId = response.chatUserId
+        myChatDeviceId = response.chatDeviceId
+        myDevices = response.devices
         return response.chatUserId
     }
 
@@ -452,9 +523,9 @@ final class ChatService: ObservableObject {
             var decrypted = last
             decrypted.isEncrypted = ChatCrypto.isEncrypted(last.body)
             if let group = conversations[index].group {
-                decrypted.body = ChatCrypto.decrypt(last.body, groupKey: groupKey(for: group))
+                decrypted.body = ChatCrypto.decrypt(last.body, contentKey: groupKey(for: group))
             } else {
-                decrypted.body = ChatCrypto.decrypt(last.body, partnerPublicKey: conversations[index].partner?.publicKey)
+                decrypted.body = ChatCrypto.decrypt(last.body, contentKey: messageKey(for: last))
             }
             conversations[index].lastMessage = decrypted
         }
@@ -464,26 +535,38 @@ final class ChatService: ObservableObject {
 
     // MARK: Groups
 
-    /// Creates a group. Requires every member (and ourselves) to have a
-    /// published public key: the group key is wrapped per member so the proxy
-    /// never sees it in the clear.
+    /// Creates a group. The group key is wrapped once per member *device* — plus
+    /// each of our own devices — so the proxy never sees it in the clear and
+    /// every device of every member can open it.
     @discardableResult
-    func createGroup(name: String, members: [ChatUser], me: ChatUser) async throws -> ChatGroup {
-        let allMembers = members + [me]
-        let groupKey = ChatCrypto.generateGroupKey()
+    func createGroup(name: String, members: [ChatUser]) async throws -> ChatGroup {
+        guard let myChatUserId else { throw ChatError.notRegistered }
+        let groupKey = ChatCrypto.generateContentKey()
 
         var wrappedKeys: [[String: Any]] = []
-        for member in allMembers {
-            guard let memberKey = member.publicKey, !memberKey.isEmpty else {
-                throw ChatError.encryptionUnavailable
+        for member in members {
+            guard member.canReceiveEncrypted else { throw ChatError.encryptionUnavailable }
+            for device in member.devices {
+                wrappedKeys.append([
+                    "device_id": device.id,
+                    "wrapped_key": try ChatCrypto.wrapKey(groupKey, forDevicePublicKey: device.publicKey),
+                    "wrapper_public_key": ChatCrypto.publicKeyBase64
+                ])
             }
-            let wrapped = try ChatCrypto.wrapKey(groupKey, forMemberPublicKey: memberKey)
-            wrappedKeys.append(["user_id": member.id, "wrapped_key": wrapped])
+        }
+        // Our own devices, including this one — wrapping to ourselves works
+        // because ECDH(our private, our public) is a valid shared secret.
+        for device in myDevices {
+            wrappedKeys.append([
+                "device_id": device.id,
+                "wrapped_key": try ChatCrypto.wrapKey(groupKey, forDevicePublicKey: device.publicKey),
+                "wrapper_public_key": ChatCrypto.publicKeyBase64
+            ])
         }
 
         let body: [String: Any] = [
             "name": name,
-            "member_ids": allMembers.map(\.id),
+            "member_ids": members.map(\.id) + [myChatUserId],
             "wrapped_keys": wrappedKeys
         ]
         let request = try makeRequest(path: "groups", method: "POST", body: body)
@@ -494,18 +577,57 @@ final class ChatService: ObservableObject {
 
     func fetchGroups() async throws -> [ChatGroup] {
         let request = try makeRequest(path: "groups")
-        return try await perform(request)
+        let groups: [ChatGroup] = try await perform(request)
+        await shareGroupKeysWithNewDevices(in: groups)
+        return groups
     }
 
-    /// The unwrapped group key, or nil when this device can't unwrap it
-    /// (e.g. new device key). Cached per session.
+    /// Re-wraps the group key for member devices that don't have it yet — a
+    /// colleague who added an iPad after the group was created would otherwise
+    /// never be able to read it. Best-effort: we can only help with groups this
+    /// device can open itself, and any member who can will do the same.
+    private func shareGroupKeysWithNewDevices(in groups: [ChatGroup]) async {
+        for group in groups {
+            let missing = group.devicesMissingKeys ?? []
+            guard !missing.isEmpty, let key = groupKey(for: group) else { continue }
+
+            var wrappedKeys: [[String: Any]] = []
+            for device in missing {
+                guard let wrapped = try? ChatCrypto.wrapKey(key, forDevicePublicKey: device.publicKey) else { continue }
+                wrappedKeys.append([
+                    "device_id": device.id,
+                    "wrapped_key": wrapped,
+                    "wrapper_public_key": ChatCrypto.publicKeyBase64
+                ])
+            }
+            guard !wrappedKeys.isEmpty else { continue }
+
+            struct TopUpResponse: Decodable { let added: Int }
+            guard let request = try? makeRequest(path: "groups/\(group.id)/keys", method: "POST",
+                                                 body: ["wrapped_keys": wrappedKeys]) else { continue }
+            let _: TopUpResponse? = try? await perform(request)
+        }
+    }
+
+    /// The unwrapped group key, or nil when this device has no envelope for the
+    /// group (it was created before this device registered). Cached per session.
     func groupKey(for group: ChatGroup) -> Data? {
         if let cached = groupKeys[group.id] { return cached }
         guard let wrapped = group.myWrappedKey,
-              let creatorKey = group.creatorPublicKey,
-              let key = ChatCrypto.unwrapKey(wrapped, creatorPublicKey: creatorKey) else { return nil }
+              let wrapperKey = group.wrapperPublicKey,
+              let key = ChatCrypto.unwrapKey(wrapped, wrapperPublicKey: wrapperKey) else { return nil }
         groupKeys[group.id] = key
         return key
+    }
+
+    /// The content key for one direct message: this device's envelope, unwrapped
+    /// against the sending device's public key. Nil when the message carries no
+    /// envelope for us, which is what produces the "encrypted message"
+    /// placeholder rather than a crash.
+    private func messageKey(for message: ChatMessage) -> Data? {
+        guard let wrapped = message.wrappedKey,
+              let senderKey = message.senderPublicKey else { return nil }
+        return ChatCrypto.unwrapKey(wrapped, wrapperPublicKey: senderKey)
     }
 
     // MARK: Messages
@@ -525,10 +647,10 @@ final class ChatService: ObservableObject {
             let raw = messages[index].body
             messages[index].isEncrypted = ChatCrypto.isEncrypted(raw)
             switch target {
-            case .direct(let partner):
-                messages[index].body = ChatCrypto.decrypt(raw, partnerPublicKey: partner.publicKey)
+            case .direct:
+                messages[index].body = ChatCrypto.decrypt(raw, contentKey: messageKey(for: messages[index]))
             case .group(let group):
-                messages[index].body = ChatCrypto.decrypt(raw, groupKey: groupKey(for: group))
+                messages[index].body = ChatCrypto.decrypt(raw, contentKey: groupKey(for: group))
             }
         }
         return messages
@@ -549,13 +671,31 @@ final class ChatService: ObservableObject {
 
         switch target {
         case .direct(let partner):
-            guard let partnerKey = partner.publicKey, !partnerKey.isEmpty else {
-                throw ChatError.encryptionUnavailable
+            guard partner.canReceiveEncrypted else { throw ChatError.encryptionUnavailable }
+            // Our own device list comes from register(); without it we'd send a
+            // message we couldn't read back ourselves.
+            guard !myDevices.isEmpty else { throw ChatError.notRegistered }
+
+            // One random key per message, wrapped for every device that may read
+            // it: all of the recipient's, and all of ours. Ours includes *this*
+            // device — unlike the old pairwise key, a random message key can't be
+            // re-derived, so without an envelope of our own we could not read our
+            // own sent messages after a refetch.
+            let messageKey = ChatCrypto.generateContentKey()
+            var envelopes: [[String: Any]] = []
+            for device in partner.devices + myDevices {
+                envelopes.append([
+                    "device_id": device.id,
+                    "wrapped_key": try ChatCrypto.wrapKey(messageKey, forDevicePublicKey: device.publicKey)
+                ])
             }
-            wireBody = try ChatCrypto.encrypt(body, partnerPublicKey: partnerKey)
+
+            wireBody = try ChatCrypto.encrypt(body, contentKey: messageKey)
             payload["to_user_id"] = partner.id
+            payload["sender_public_key"] = ChatCrypto.publicKeyBase64
+            payload["keys"] = envelopes
             if let attachment {
-                let sealed = try ChatCrypto.encryptData(attachment.data, partnerPublicKey: partnerKey)
+                let sealed = try ChatCrypto.encryptData(attachment.data, contentKey: messageKey)
                 let attachmentId = try await uploadAttachment(sealed, filename: attachment.filename, mimeType: attachment.mimeType)
                 payload["attachment_id"] = attachmentId
                 payload["attachment_name"] = attachment.filename
@@ -565,10 +705,10 @@ final class ChatService: ObservableObject {
             guard let key = groupKey(for: group) else {
                 throw ChatError.encryptionUnavailable
             }
-            wireBody = try ChatCrypto.encrypt(body, groupKey: key)
+            wireBody = try ChatCrypto.encrypt(body, contentKey: key)
             payload["group_id"] = group.id
             if let attachment {
-                let sealed = try ChatCrypto.encryptData(attachment.data, groupKey: key)
+                let sealed = try ChatCrypto.encryptData(attachment.data, contentKey: key)
                 let attachmentId = try await uploadAttachment(sealed, filename: attachment.filename, mimeType: attachment.mimeType)
                 payload["attachment_id"] = attachmentId
                 payload["attachment_name"] = attachment.filename
@@ -637,18 +777,21 @@ final class ChatService: ObservableObject {
         return response.id
     }
 
-    /// Downloads and decrypts an attachment for a message in the given target.
-    func downloadAttachment(id: Int, for target: ChatTarget) async throws -> Data {
-        let request = try makeRequest(path: "attachments/\(id)")
+    /// Downloads and decrypts a message's attachment. An attachment is sealed
+    /// with the same content key as the message that carries it, so decrypting
+    /// it needs that message rather than just the conversation.
+    func downloadAttachment(for message: ChatMessage, in target: ChatTarget) async throws -> Data {
+        guard let attachmentId = message.attachmentId else { throw ChatError.serverUnavailable }
+        let contentKey: Data?
+        switch target {
+        case .direct: contentKey = messageKey(for: message)
+        case .group(let group): contentKey = groupKey(for: group)
+        }
+        guard let contentKey else { throw ChatError.encryptionUnavailable }
+
+        let request = try makeRequest(path: "attachments/\(attachmentId)")
         let response: AttachmentDownloadResponse = try await perform(request)
         guard let sealed = Data(base64Encoded: response.data) else { throw ChatError.serverUnavailable }
-        switch target {
-        case .direct(let partner):
-            guard let key = partner.publicKey else { throw ChatError.encryptionUnavailable }
-            return try ChatCrypto.decryptData(sealed, partnerPublicKey: key)
-        case .group(let group):
-            guard let key = groupKey(for: group) else { throw ChatError.encryptionUnavailable }
-            return try ChatCrypto.decryptData(sealed, groupKey: key)
-        }
+        return try ChatCrypto.decryptData(sealed, contentKey: contentKey)
     }
 }

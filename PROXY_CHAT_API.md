@@ -4,10 +4,18 @@ Server-side spec for the engineer-to-engineer chat used by the iOS app
 (`ChatService.swift`). Deploy on `zammadproxy.world-ict.nl` alongside the
 existing notification proxy. All endpoints live under `/api/chat/`.
 
-The reference implementation of this spec (v3, MariaDB) lives in `proxy/` in
+The reference implementation of this spec (v4, MariaDB) lives in `proxy/` in
 this repo: `chat.js` (the router), `server.js` (mounting + APNs) and
 `retention.js` (cron cleanup). The Node/Express/sqlite listing further down is
 kept as the portable illustration of the v1/v2 core.
+
+**Protocol history.** v2 added end-to-end encryption with one key per *user*;
+v3 added groups and attachments; **v4 moves to one key per *device*** so an
+agent can use the app on an iPhone and an iPad at the same time. Read the v4
+section at the bottom before the older sections — it supersedes them wherever
+they disagree, in particular `public_key` on `chat_users` (now on
+`chat_devices`) and the shape of `/register`, `/users`, `/messages` and
+`/groups`.
 
 ## Authentication
 
@@ -17,6 +25,7 @@ Every request carries two headers:
 |---|---|
 | `Authorization` | `Token token=<zammad personal access token>` |
 | `X-Zammad-Url` | The caller's Zammad instance URL, e.g. `https://helpdesk.example.com` |
+| `X-Device-Id` | (v4) The calling device's stable id, so the proxy can return the key envelopes addressed to it |
 
 The proxy validates the pair by calling `GET <X-Zammad-Url>/api/v1/users/me`
 with the same Authorization header. A successful response proves the caller is
@@ -417,6 +426,192 @@ CREATE TABLE chat_group_reads (group_id INTEGER, user_id INTEGER, last_read_mess
 CREATE TABLE chat_attachments (id INTEGER PRIMARY KEY AUTOINCREMENT, instance_url TEXT NOT NULL, data BLOB NOT NULL, filename TEXT, mime_type TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')));
 -- chat_messages gains: group_id INTEGER, attachment_id INTEGER, attachment_name TEXT, attachment_mime TEXT
 ```
+
+## v4: Per-device keys (multi-device)
+
+Up to v3 a user had exactly one `public_key` and one `proxy_user_id`, both
+overwritten by `/register`. Installing the app on a second device therefore
+replaced the first device's encryption key *and* stole its push registration:
+the original device could no longer read new messages and stopped getting
+notifications. v4 fixes this by making the *device*, not the user, the unit that
+owns a key.
+
+### Schema
+
+```sql
+CREATE TABLE chat_devices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  chat_user_id INT NOT NULL,
+  device_id VARCHAR(64) NOT NULL,      -- client-generated, stable per install
+  public_key TEXT NOT NULL,
+  proxy_user_id VARCHAR(255),          -- this device's own push registration
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_user_device (chat_user_id, device_id)
+);
+
+CREATE TABLE chat_message_keys (
+  message_id BIGINT NOT NULL,
+  device_id INT NOT NULL,              -- chat_devices.id
+  wrapped_key TEXT NOT NULL,
+  PRIMARY KEY (message_id, device_id)
+);
+
+CREATE TABLE chat_group_device_keys (
+  group_id INT NOT NULL,
+  device_id INT NOT NULL,              -- chat_devices.id
+  wrapped_key TEXT NOT NULL,
+  wrapper_public_key TEXT NOT NULL,    -- whose key to run the ECDH against
+  PRIMARY KEY (group_id, device_id)
+);
+
+-- chat_messages gains: sender_public_key TEXT NULL
+```
+
+`chat_users.public_key` and `chat_users.proxy_user_id` are dead in v4. They are
+left in place rather than dropped so an upgrade can't lose data, but nothing
+reads or writes them. `chat_group_members.wrapped_key` is likewise superseded by
+`chat_group_device_keys`.
+
+### How a direct message is encrypted
+
+The v2/v3 scheme sealed the body directly with the pairwise ECDH key, which only
+works when there is exactly one key per side. v4 uses the indirection groups
+already used:
+
+1. The sender generates a **random 256-bit content key** for this one message.
+2. The body (and the attachment, if any) is sealed with that content key.
+3. The content key is wrapped once per device that may read it: every device of
+   the recipient, plus the sender's *other* devices, each wrapped with the
+   pairwise ECDH key between the sending device and that device.
+4. The message row stores the sending device's `sender_public_key`; each
+   envelope goes in `chat_message_keys`.
+
+Reading is the reverse: `GET /messages` returns the calling device's own
+`wrapped_key` (joined on `X-Device-Id`), the device unwraps it against
+`sender_public_key`, then opens the body. A device with no envelope for a
+message gets `wrapped_key: null` and shows the "encrypted message" placeholder —
+which is the expected outcome for messages sent before that device existed.
+
+Group messages are unchanged in shape: they stay sealed with the long-lived
+group key, which is now wrapped per device in `chat_group_device_keys`.
+
+### POST /api/chat/register
+
+```json
+{
+  "zammad_user_id": 5,
+  "name": "Bas Jonkers",
+  "email": "b@example.com",
+  "proxy_user_id": "NOTIFICATION-PROXY-UUID-OR-EMPTY",
+  "public_key": "BASE64-CURVE25519-PUBLIC-KEY",
+  "device_id": "CLIENT-GENERATED-UUID"
+}
+```
+
+Upserts the user (name/email only) and this device. `device_id` and
+`public_key` are required; `400` without them. Response:
+
+```json
+{
+  "chat_user_id": 12,
+  "chat_device_id": 30,
+  "devices": [ { "id": 30, "public_key": "..." }, { "id": 31, "public_key": "..." } ]
+}
+```
+
+`devices` is every device of the caller, so the client can wrap outgoing
+messages for its own other devices.
+
+### GET /api/chat/users
+
+`public_key` is gone; each user carries a `devices` array instead. An empty
+array means the colleague has never opened the app and cannot be messaged.
+
+```json
+[
+  { "id": 12, "zammad_user_id": 5, "name": "Bas Jonkers", "email": "b@example.com",
+    "devices": [ { "id": 30, "public_key": "..." }, { "id": 31, "public_key": "..." } ] }
+]
+```
+
+### POST /api/chat/messages
+
+Direct messages gain two required fields:
+
+```json
+{
+  "to_user_id": 13,
+  "body": "enc1:BASE64…",
+  "sender_public_key": "BASE64-CURVE25519-PUBLIC-KEY",
+  "keys": [
+    { "device_id": 40, "wrapped_key": "BASE64…" },
+    { "device_id": 41, "wrapped_key": "BASE64…" },
+    { "device_id": 31, "wrapped_key": "BASE64…" }
+  ]
+}
+```
+
+Reject with `400` when a direct message arrives without `sender_public_key` or
+with an empty `keys` array — storing it would produce a message nobody can ever
+read. Envelopes addressed to a device that belongs to neither the recipient nor
+the sender are silently dropped. Group messages send neither field.
+
+### GET /api/chat/messages, /api/chat/conversations
+
+Every message object gains `sender_public_key` and `wrapped_key`, the latter
+being *this* device's envelope (`LEFT JOIN chat_message_keys ON device_id =
+<caller's device>`). Both are `null` for group messages.
+
+### Groups
+
+`POST /api/chat/groups` now takes device-addressed envelopes:
+
+```json
+{
+  "name": "Network team",
+  "member_ids": [12, 13],
+  "wrapped_keys": [
+    { "device_id": 30, "wrapped_key": "…", "wrapper_public_key": "…" },
+    { "device_id": 40, "wrapped_key": "…", "wrapper_public_key": "…" }
+  ]
+}
+```
+
+`GET /api/chat/groups` returns `my_wrapped_key` + `wrapper_public_key` for the
+calling device, and `devices_missing_keys`: member devices that hold no envelope
+for this group yet.
+
+### POST /api/chat/groups/:id/keys
+
+```json
+{ "wrapped_keys": [ { "device_id": 41, "wrapped_key": "…", "wrapper_public_key": "…" } ] }
+```
+
+Response: `{ "added": 1 }`.
+
+The self-healing half of multi-device. A group key is long-lived, so a device
+registered after the group was created would otherwise be locked out forever.
+Any member that can already open the group re-wraps the key for the devices in
+`devices_missing_keys`; the client does this automatically after `GET /groups`.
+
+Two rules make this safe: the caller must be a member (they can only pass on a
+key they could already open), and existing envelopes are never overwritten
+(`ON DUPLICATE KEY UPDATE group_id = group_id`), so no member can swap the group
+key out from under everyone else.
+
+### Push
+
+Push fans out to **every** device of each recipient, looked up from
+`chat_devices.proxy_user_id`. The sending device is excluded. For direct
+messages the sender's own other devices are deliberately not pushed — they pick
+the message up on their next refresh, and a "new message" alert for something
+you just sent reads as a bug.
+
+### Retention
+
+`retention.js` deletes `chat_message_keys` rows whose message is gone, along
+with the existing message and orphaned-attachment sweeps.
 
 ## APNS environments (dev vs TestFlight/App Store)
 
