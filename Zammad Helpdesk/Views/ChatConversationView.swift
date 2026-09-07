@@ -4,7 +4,7 @@ import QuickLook
 import UniformTypeIdentifiers
 
 /// Message thread with a colleague or a group. Polls the proxy for new
-/// messages every few seconds while the view is visible, caches history
+/// messages every minute while the view is visible, caches history
 /// on-device (pruned to the configured retention window) and supports
 /// @mentions, #ticket references and encrypted photo/file attachments.
 struct ChatConversationView: View {
@@ -21,6 +21,7 @@ struct ChatConversationView: View {
     @State private var draft = ""
     @State private var isSending = false
     @State private var errorMessage: String?
+    @State private var lastPollDate = Date()
 
     // #ticket reference
     @State private var isShowingTicketSearch = false
@@ -32,7 +33,7 @@ struct ChatConversationView: View {
     @State private var pendingAttachment: PendingChatAttachment?
     @State private var previewURL: URL?
 
-    private let pollInterval: UInt64 = 5_000_000_000 // 5 seconds
+    private let pollInterval: UInt64 = 60_000_000_000 // 60 seconds
 
     /// The color scheme environment already reflects the in-app theme override.
     private var theme: ChatTheme {
@@ -139,32 +140,42 @@ struct ChatConversationView: View {
                     .font(.caption.bold())
                     .foregroundColor(theme.metaText)
             }
-            if let ticketId = message.ticketId {
-                Button {
-                    // Reuse the existing deep-link pipeline to open the ticket.
-                    DeepLinkManager.shared.pendingTicketID = ticketId
-                } label: {
-                    Label(String(format: "chat_ticket_reference".localized(), message.ticketNumber ?? String(ticketId)), systemImage: "ticket")
-                        .font(.caption.bold())
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            }
-            if message.attachmentId != nil {
-                ChatAttachmentView(
-                    message: message,
-                    filename: message.attachmentName ?? "attachment",
-                    mimeType: message.attachmentMime ?? "application/octet-stream",
-                    target: target,
-                    previewURL: $previewURL
-                )
-            }
-            if !message.body.isEmpty {
-                Text(attributedBody(message))
+            if message.deleted == true {
+                // Tombstone: neutral grey bubble, no ticket/attachment chips.
+                Text("🗑 " + "chat_message_deleted".localized())
+                    .font(.subheadline.italic())
                     .padding(10)
-                    .background(isMine ? theme.myBubble : theme.partnerBubble)
-                    .foregroundColor(isMine ? theme.myText : theme.partnerText)
+                    .background(Color(.systemGray5).opacity(0.85))
+                    .foregroundColor(.secondary)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
+            } else {
+                if let ticketId = message.ticketId {
+                    Button {
+                        // Reuse the existing deep-link pipeline to open the ticket.
+                        DeepLinkManager.shared.pendingTicketID = ticketId
+                    } label: {
+                        Label(String(format: "chat_ticket_reference".localized(), message.ticketNumber ?? String(ticketId)), systemImage: "ticket")
+                            .font(.caption.bold())
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                if message.attachmentId != nil {
+                    ChatAttachmentView(
+                        message: message,
+                        filename: message.attachmentName ?? "attachment",
+                        mimeType: message.attachmentMime ?? "application/octet-stream",
+                        target: target,
+                        previewURL: $previewURL
+                    )
+                }
+                if !message.body.isEmpty {
+                    Text(attributedBody(message))
+                        .padding(10)
+                        .background(isMine ? theme.myBubble : theme.partnerBubble)
+                        .foregroundColor(isMine ? theme.myText : theme.partnerText)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
             }
             HStack(spacing: 4) {
                 Image(systemName: message.isEncrypted ? "lock.fill" : "lock.open.fill")
@@ -202,12 +213,19 @@ struct ChatConversationView: View {
     // MARK: - Deletion
 
     /// Deletes one of our own messages on the proxy (tombstoned for everyone).
+    /// Locally the bubble becomes the same grey tombstone the receiver sees.
     private func deleteForEveryone(_ message: ChatMessage) {
         Task {
             do {
                 try await chatService.deleteMessage(id: message.id)
-                ChatHistoryStore.shared.remove(id: message.id, key: target.id)
-                messages.removeAll { $0.id == message.id }
+                if let index = messages.firstIndex(where: { $0.id == message.id }) {
+                    var tombstone = messages[index]
+                    tombstone.deleted = true
+                    tombstone.body = "chat_message_deleted".localized()
+                    tombstone.isEncrypted = true
+                    messages[index] = tombstone
+                    ChatHistoryStore.shared.merge([tombstone], key: target.id)
+                }
             } catch {
                 errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }
@@ -390,9 +408,17 @@ struct ChatConversationView: View {
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: pollInterval)
             guard !Task.isCancelled else { return }
-            if let new = try? await chatService.fetchMessages(for: target, since: messages.last?.id), !new.isEmpty {
-                messages = ChatHistoryStore.shared.merge(new, key: target.id)
-                await chatService.markRead(target: target)
+            // Timestamp taken before the request so a deletion racing with the
+            // fetch is picked up by the next poll rather than lost.
+            let pollStart = Date()
+            if let new = try? await chatService.fetchMessages(for: target, since: messages.last?.id, deletedAfter: lastPollDate) {
+                lastPollDate = pollStart
+                if !new.isEmpty {
+                    // Tombstones in `new` replace their originals via merge-by-id,
+                    // so deletions disappear live from the open conversation.
+                    messages = ChatHistoryStore.shared.merge(new, key: target.id)
+                    await chatService.markRead(target: target)
+                }
             }
         }
     }

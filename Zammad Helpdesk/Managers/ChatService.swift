@@ -649,13 +649,18 @@ final class ChatService: ObservableObject {
 
     /// Messages for a target, decrypted for display. Pass `since` (last known
     /// message id) for incremental polling.
-    func fetchMessages(for target: ChatTarget, since: Int? = nil) async throws -> [ChatMessage] {
+    func fetchMessages(for target: ChatTarget, since: Int? = nil, deletedAfter: Date? = nil) async throws -> [ChatMessage] {
         var query: [URLQueryItem]
         switch target {
         case .direct(let partner): query = [URLQueryItem(name: "with", value: String(partner.id))]
         case .group(let group): query = [URLQueryItem(name: "group", value: String(group.id))]
         }
         if let since { query.append(URLQueryItem(name: "since", value: String(since))) }
+        // Live deletion propagation: also return tombstones (any id) whose
+        // deleted_at is after this timestamp, so open conversations update.
+        if let deletedAfter {
+            query.append(URLQueryItem(name: "deleted_after", value: ISO8601DateFormatter().string(from: deletedAfter)))
+        }
         let request = try makeRequest(path: "messages", queryItems: query)
         var messages: [ChatMessage] = try await perform(request)
         for index in messages.indices {
