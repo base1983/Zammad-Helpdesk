@@ -1,5 +1,6 @@
-// retention.js — delete chat messages older than the retention window.
-// Run from cron (see crontab). Uses the same DB credentials as server.js.
+// retention.js — delete chat messages (and their attachments) older than the
+// retention window. Run from cron (see crontab). Uses the same DB credentials
+// as server.js.
 //
 //   /opt/plesk/node/24/bin/node retention.js
 //
@@ -16,12 +17,21 @@ const RETENTION_DAYS = parseInt(process.env.CHAT_RETENTION_DAYS, 10) || 90;
     let conn;
     try {
         conn = await pool.getConnection();
-        const result = await conn.query(
+        const messages = await conn.query(
             'DELETE FROM chat_messages WHERE created_at < (UTC_TIMESTAMP() - INTERVAL ? DAY)',
             [RETENTION_DAYS]
         );
-        const removed = Number(result.affectedRows || 0);
-        console.log(`[${new Date().toISOString()}] chat retention: deleted ${removed} message(s) older than ${RETENTION_DAYS} days.`);
+        // Attachment blobs outlive their message row, so sweep the orphans too.
+        // (Only past the retention window, so a blob uploaded moments before its
+        // message row is written is never caught mid-send.)
+        const attachments = await conn.query(`
+            DELETE FROM chat_attachments
+            WHERE created_at < (UTC_TIMESTAMP() - INTERVAL ? DAY)
+              AND id NOT IN (SELECT attachment_id FROM chat_messages WHERE attachment_id IS NOT NULL)
+        `, [RETENTION_DAYS]);
+        const removed = Number(messages.affectedRows || 0);
+        const blobs = Number(attachments.affectedRows || 0);
+        console.log(`[${new Date().toISOString()}] chat retention: deleted ${removed} message(s) and ${blobs} orphaned attachment(s) older than ${RETENTION_DAYS} days.`);
     } catch (err) {
         console.error(`[${new Date().toISOString()}] chat retention FAILED:`, err.message);
         process.exitCode = 1;

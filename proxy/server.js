@@ -62,7 +62,13 @@ const pool = mariadb.createPool(dbConfig);
 
 // --- Express App Setup ---
 const app = express();
-app.use(bodyParser.json());
+// The chat router parses its own bodies with a much larger limit (attachments
+// are base64 inside the JSON body), so skip the default 100kb parser for it.
+const jsonParser = bodyParser.json();
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api/chat')) return next();
+    jsonParser(req, res, next);
+});
 
 // --- Chat helpers (shared with the chat router) ---
 // Look up a registered device token by proxyUserID.

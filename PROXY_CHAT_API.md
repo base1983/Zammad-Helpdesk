@@ -4,6 +4,11 @@ Server-side spec for the engineer-to-engineer chat used by the iOS app
 (`ChatService.swift`). Deploy on `zammadproxy.world-ict.nl` alongside the
 existing notification proxy. All endpoints live under `/api/chat/`.
 
+The reference implementation of this spec (v3, MariaDB) lives in `proxy/` in
+this repo: `chat.js` (the router), `server.js` (mounting + APNs) and
+`retention.js` (cron cleanup). The Node/Express/sqlite listing further down is
+kept as the portable illustration of the v1/v2 core.
+
 ## Authentication
 
 Every request carries two headers:
@@ -34,11 +39,17 @@ Request body:
   "zammad_user_id": 5,
   "name": "Bas Jonkers",
   "email": "b@example.com",
-  "proxy_user_id": "EXISTING-NOTIFICATION-PROXY-UUID-OR-EMPTY"
+  "proxy_user_id": "EXISTING-NOTIFICATION-PROXY-UUID-OR-EMPTY",
+  "public_key": "BASE64-CURVE25519-PUBLIC-KEY"
 }
 ```
 `proxy_user_id` links the chat identity to the existing push registration so
 chat pushes reuse the stored APNS device token. Empty string = no push.
+
+`public_key` (v2) is the device's Curve25519 public key for end-to-end
+encryption. Store it verbatim and return it in `users` and `conversations`
+responses. Message bodies arriving with an `enc1:` prefix are ciphertext the
+proxy cannot (and must not try to) decrypt.
 
 Response `200`:
 ```json
@@ -52,10 +63,12 @@ the app filters itself out).
 Response `200`:
 ```json
 [
-  { "id": 12, "zammad_user_id": 5, "name": "Bas Jonkers", "email": "b@example.com" },
-  { "id": 13, "zammad_user_id": 8, "name": "Jane Doe", "email": "j@example.com" }
+  { "id": 12, "zammad_user_id": 5, "name": "Bas Jonkers", "email": "b@example.com", "public_key": "..." },
+  { "id": 13, "zammad_user_id": 8, "name": "Jane Doe", "email": "j@example.com", "public_key": "..." }
 ]
 ```
+Include `public_key` (may be null for old clients) here and in the `partner`
+objects of `/conversations`.
 
 ### GET /api/chat/conversations
 Conversation summaries for the caller, newest first.
@@ -94,16 +107,18 @@ Request body:
 Response `200`: the created message object.
 
 Side effect: if the recipient has a linked `proxy_user_id` with an APNS device
-token, send a push:
+token, send a push. **Do not include the message body** — with end-to-end
+encryption it is ciphertext anyway. Use a generic alert:
 ```json
 {
-  "aps": { "alert": { "title": "<sender name>", "body": "<message body>" }, "sound": "default" },
+  "aps": { "alert": { "title": "<sender name>", "body": "New message" }, "sound": "default" },
   "chat_from_user_id": 12,
   "ticketID": 486
 }
 ```
-Including `ticketID` (only when the message references a ticket) lets the
-app's existing DeepLinkManager open the ticket from the notification.
+`chat_from_user_id` lets the app open the conversation directly when the push
+is tapped. Include `ticketID` only when the message references a ticket; the
+app then opens the ticket instead.
 
 ### POST /api/chat/read
 Marks all messages from `with_user_id` to the caller as read.
@@ -129,6 +144,7 @@ module.exports = function createChatRouter({ sendPush /* (deviceToken, payload) 
       name TEXT NOT NULL,
       email TEXT,
       proxy_user_id TEXT,
+      public_key TEXT,
       UNIQUE(instance_url, zammad_user_id)
     );
     CREATE TABLE IF NOT EXISTS chat_messages (
@@ -183,7 +199,7 @@ module.exports = function createChatRouter({ sendPush /* (deviceToken, payload) 
              .get(req.zammad.instanceUrl, req.zammad.userId);
   }
 
-  const toUserJson = (u) => ({ id: u.id, zammad_user_id: u.zammad_user_id, name: u.name, email: u.email });
+  const toUserJson = (u) => ({ id: u.id, zammad_user_id: u.zammad_user_id, name: u.name, email: u.email, public_key: u.public_key });
   const toMessageJson = (m) => ({
     id: m.id, from_user_id: m.from_user_id, to_user_id: m.to_user_id,
     body: m.body, ticket_id: m.ticket_id, ticket_number: m.ticket_number,
@@ -195,14 +211,15 @@ module.exports = function createChatRouter({ sendPush /* (deviceToken, payload) 
   router.use(authenticate);
 
   router.post('/register', (req, res) => {
-    const { name, email, proxy_user_id } = req.body || {};
+    const { name, email, proxy_user_id, public_key } = req.body || {};
     if (!name) return res.status(400).end();
     db.prepare(`
-      INSERT INTO chat_users (instance_url, zammad_user_id, name, email, proxy_user_id)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO chat_users (instance_url, zammad_user_id, name, email, proxy_user_id, public_key)
+      VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(instance_url, zammad_user_id)
-      DO UPDATE SET name = excluded.name, email = excluded.email, proxy_user_id = excluded.proxy_user_id
-    `).run(req.zammad.instanceUrl, req.zammad.userId, name, email || null, proxy_user_id || null);
+      DO UPDATE SET name = excluded.name, email = excluded.email,
+                    proxy_user_id = excluded.proxy_user_id, public_key = excluded.public_key
+    `).run(req.zammad.instanceUrl, req.zammad.userId, name, email || null, proxy_user_id || null, public_key || null);
     res.json({ chat_user_id: callerChatUser(req).id });
   });
 
@@ -269,8 +286,9 @@ module.exports = function createChatRouter({ sendPush /* (deviceToken, payload) 
     if (recipient.proxy_user_id) {
       const deviceToken = lookupDeviceToken(recipient.proxy_user_id);
       if (deviceToken) {
+        // Never put the body in the push — it's E2E-encrypted ciphertext.
         const payload = {
-          aps: { alert: { title: me.name, body }, sound: 'default' },
+          aps: { alert: { title: me.name, body: 'New message' }, sound: 'default' },
           chat_from_user_id: me.id,
         };
         if (ticket_id) payload.ticketID = ticket_id;
@@ -306,11 +324,148 @@ app.use('/api/chat', createChatRouter({
 }));
 ```
 
+## v3: Groups & attachments
+
+### Message object changes
+
+Messages gain optional fields (all snake_case on the wire):
+`group_id` (set for group messages, `to_user_id` is then null), `from_user_name`
+(sender display name, needed for group rendering), `attachment_id`,
+`attachment_name`, `attachment_mime`.
+
+### POST /api/chat/groups
+Creates a group. The group key is end-to-end encrypted: the client generates it
+and uploads one *wrapped* (sealed) copy per member. The proxy must store the
+wrapped keys verbatim — it can never read them.
+
+```json
+{
+  "name": "iOS Team",
+  "member_ids": [12, 13, 14],
+  "wrapped_keys": [
+    { "user_id": 12, "wrapped_key": "BASE64" },
+    { "user_id": 13, "wrapped_key": "BASE64" },
+    { "user_id": 14, "wrapped_key": "BASE64" }
+  ]
+}
+```
+`member_ids` includes the creator. Response `200` — the group as seen by the
+caller:
+```json
+{
+  "id": 3,
+  "name": "iOS Team",
+  "creator_id": 12,
+  "creator_public_key": "BASE64",
+  "my_wrapped_key": "BASE64",
+  "members": [ { ...chat user objects incl. public_key... } ]
+}
+```
+
+### GET /api/chat/groups
+All groups the caller is a member of, same shape as above (`my_wrapped_key` is
+the wrapped key stored for the *caller*; `creator_public_key` comes from the
+creator's directory entry — members unwrap with the creator↔member pairwise
+key).
+
+### Group messages
+- `POST /api/chat/messages` accepts `group_id` instead of `to_user_id`.
+- `GET /api/chat/messages?group=3&since=...` returns group messages (include
+  `from_user_name`).
+- Push: notify all group members except the sender. Payload includes
+  `chat_group_id` (the app then opens the group conversation):
+  `{"aps": {"alert": {"title": "<sender> @ <group name>", "body": "New message"}, "sound": "default"}, "chat_group_id": 3}`
+- `POST /api/chat/read` accepts `{"group_id": 3}` — mark the group read for the
+  caller (per-user read state, e.g. a `group_reads(group_id, user_id, last_read_message_id)`
+  table). Unread counts per group feed into `/conversations`: messages newer
+  than the caller's `last_read_message_id` that they didn't send themselves.
+- Every group endpoint checks membership and answers `403` when the caller
+  isn't a member. Group messages have `to_user_id = null`, so the direct-message
+  queries must exclude them (`group_id IS NULL`) — otherwise a group message
+  shows up as a bogus direct conversation.
+
+### GET /api/chat/conversations (v3 shape)
+Entries are either direct (`partner` set) or group (`group` set):
+```json
+[
+  { "partner": { ... }, "group": null, "last_message": { ... }, "unread_count": 2 },
+  { "partner": null, "group": { "id": 3, "name": "iOS Team", "creator_id": 12,
+      "creator_public_key": "BASE64", "my_wrapped_key": "BASE64" },
+    "last_message": { ... }, "unread_count": 5 }
+]
+```
+
+### Attachments
+Attachment blobs are encrypted client-side (ChaChaPoly with the conversation's
+pairwise/group key) before upload — store and serve them opaquely.
+
+- `POST /api/chat/attachments` `{"data": "BASE64-CIPHERTEXT", "filename": "x.jpg", "mime_type": "image/jpeg"}`
+  → `{"id": 42}`. Enforce a size limit (~15 MB base64). Only the uploader's
+  instance may fetch it.
+  The JSON body parser must allow this much: a default `express.json()` caps
+  bodies at 100 kB and would reject every upload with a 413. In `proxy/`, the
+  chat router parses its own bodies with a 20 MB limit and `server.js` skips
+  the global parser for `/api/chat`, so the larger limit stays scoped to chat.
+- `GET /api/chat/attachments/:id` → `{"data": "BASE64-CIPHERTEXT", "filename": "...", "mime_type": "..."}`
+- Consider a cron deleting attachments older than the message retention window.
+
+Suggested tables:
+```sql
+CREATE TABLE chat_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, instance_url TEXT NOT NULL, name TEXT NOT NULL, creator_id INTEGER NOT NULL);
+CREATE TABLE chat_group_members (group_id INTEGER, user_id INTEGER, wrapped_key TEXT, PRIMARY KEY (group_id, user_id));
+CREATE TABLE chat_group_reads (group_id INTEGER, user_id INTEGER, last_read_message_id INTEGER, PRIMARY KEY (group_id, user_id));
+CREATE TABLE chat_attachments (id INTEGER PRIMARY KEY AUTOINCREMENT, instance_url TEXT NOT NULL, data BLOB NOT NULL, filename TEXT, mime_type TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')));
+-- chat_messages gains: group_id INTEGER, attachment_id INTEGER, attachment_name TEXT, attachment_mime TEXT
+```
+
+## APNS environments (dev vs TestFlight/App Store)
+
+The APNS host must match the build that registered the device token, or Apple
+rejects the push with `400 BadDeviceToken` — the classic "pushes work from
+Xcode but not on TestFlight" failure:
+
+| Build | Token type | APNS host |
+|---|---|---|
+| Xcode run on device | Sandbox | `api.sandbox.push.apple.com` |
+| TestFlight / App Store | Production | `api.push.apple.com` |
+
+(The app's entitlement says `aps-environment: development`, but Xcode swaps it
+to `production` automatically when archiving for distribution.)
+
+Recommended: try production first and fall back to sandbox on
+`BadDeviceToken`, so one code path serves both environments. A `.p8` signing
+key (token-based auth) works for both hosts unchanged:
+
+```js
+async function sendPush(deviceToken, payload) {
+  const result = await sendVia('api.push.apple.com', deviceToken, payload);
+  if (result.status === 400 && result.reason === 'BadDeviceToken') {
+    // Development build token — retry against the sandbox environment.
+    return sendVia('api.sandbox.push.apple.com', deviceToken, payload);
+  }
+  return result;
+}
+```
+
+With node-apn, keep two `Provider` instances (`production: true` and `false`)
+and retry on the other when the first reports `BadDeviceToken`.
+
+Note: a device that switches between an Xcode build and a TestFlight build
+gets a *different* token type; the app re-registers on launch and when the
+notifications toggle is flipped, so the stored token follows the installed
+build.
+
 ## Operational notes
 
-- **Retention:** consider a cron that deletes messages older than e.g. 90 days.
+- **Retention:** a cron deletes messages older than e.g. 90 days
+  (`retention.js`), and sweeps attachment blobs past the same window that no
+  message references any more — blobs outlive their message row otherwise.
 - **Rate limiting:** basic per-user limits (e.g. 60 sends/min) prevent abuse.
-- **Privacy:** message bodies are stored in plaintext on the proxy; mention
-  this in the app's privacy policy. TLS covers transport.
+- **Privacy:** since v2 the proxy stores ciphertext only — message bodies
+  (`enc1:` prefix), wrapped group keys and attachment blobs are all sealed by
+  the client, so the proxy cannot read them. What it does see in the clear:
+  who talked to whom and when, group names and membership, attachment
+  filenames/MIME types, and any referenced ticket id/number. TLS covers
+  transport.
 - **Unregister:** when a device unregisters from notifications, keep the chat
   user row (history stays intact); pushes simply stop until they re-register.

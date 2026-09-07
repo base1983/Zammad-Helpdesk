@@ -1,18 +1,69 @@
 import SwiftUI
+import PhotosUI
+import QuickLook
+import UniformTypeIdentifiers
 
-/// One-on-one message thread with another engineer. Polls the proxy for new
-/// messages every few seconds while the view is visible.
+/// Message thread with a colleague or a group. Polls the proxy for new
+/// messages every few seconds while the view is visible, caches history
+/// on-device (pruned to the configured retention window) and supports
+/// @mentions, #ticket references and encrypted photo/file attachments.
 struct ChatConversationView: View {
-    let partner: ChatUser
+    let target: ChatTarget
     @ObservedObject var viewModel: TicketViewModel
     @StateObject private var chatService = ChatService.shared
+
+    private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
+    @AppStorage("chat_theme_light", store: Self.groupDefaults) private var lightThemeID: String = ChatTheme.defaultLight.rawValue
+    @AppStorage("chat_theme_dark", store: Self.groupDefaults) private var darkThemeID: String = ChatTheme.defaultDark.rawValue
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var messages: [ChatMessage] = []
     @State private var draft = ""
     @State private var isSending = false
     @State private var errorMessage: String?
 
+    // #ticket reference
+    @State private var isShowingTicketSearch = false
+    @State private var pendingTicket: Ticket?
+
+    // Attachments
+    @State private var photoPickerItem: PhotosPickerItem?
+    @State private var isShowingFileImporter = false
+    @State private var pendingAttachment: PendingChatAttachment?
+    @State private var previewURL: URL?
+
     private let pollInterval: UInt64 = 5_000_000_000 // 5 seconds
+
+    /// The color scheme environment already reflects the in-app theme override.
+    private var theme: ChatTheme {
+        if colorScheme == .dark {
+            return ChatTheme(rawValue: darkThemeID) ?? .defaultDark
+        } else {
+            return ChatTheme(rawValue: lightThemeID) ?? .defaultLight
+        }
+    }
+
+    /// People that can be @mentioned in this conversation.
+    private var mentionCandidates: [ChatUser] {
+        switch target {
+        case .direct(let partner): [partner]
+        case .group(let group): (group.members ?? []).filter { $0.id != chatService.myChatUserId }
+        }
+    }
+
+    /// Active "@…" token at the end of the draft, if any.
+    private var mentionQuery: String? {
+        guard let atIndex = draft.lastIndex(of: "@") else { return nil }
+        let token = String(draft[draft.index(after: atIndex)...])
+        guard !token.contains("\n") else { return nil }
+        return token
+    }
+
+    private var mentionSuggestions: [ChatUser] {
+        guard let query = mentionQuery else { return [] }
+        if query.isEmpty { return mentionCandidates }
+        return mentionCandidates.filter { $0.name.lowercased().hasPrefix(query.lowercased()) }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,14 +91,41 @@ struct ChatConversationView: View {
                     .padding(.horizontal)
             }
 
+            if !mentionSuggestions.isEmpty {
+                mentionBar
+            }
+            if pendingTicket != nil || pendingAttachment != nil {
+                pendingItemsBar
+            }
             inputBar
         }
-        .navigationTitle(partner.name)
+        .background(theme.background.ignoresSafeArea())
+        .navigationTitle(target.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadInitial()
             await pollLoop()
         }
+        .sheet(isPresented: $isShowingTicketSearch) {
+            ChatTicketSearchSheet { ticket in
+                // Remove the trailing '#' that triggered the search.
+                if draft.hasSuffix("#") { draft.removeLast() }
+                pendingTicket = ticket
+            }
+        }
+        .onChange(of: draft) { _, newValue in
+            if newValue.hasSuffix("#") {
+                isShowingTicketSearch = true
+            }
+        }
+        .onChange(of: photoPickerItem) { _, item in
+            guard let item else { return }
+            Task { await loadPhoto(item) }
+        }
+        .fileImporter(isPresented: $isShowingFileImporter, allowedContentTypes: [.item]) { result in
+            if case .success(let url) = result { loadFile(url) }
+        }
+        .quickLookPreview($previewURL)
     }
 
     // MARK: - Subviews
@@ -55,6 +133,12 @@ struct ChatConversationView: View {
     private func messageBubble(_ message: ChatMessage) -> some View {
         let isMine = message.fromUserId == chatService.myChatUserId
         return VStack(alignment: isMine ? .trailing : .leading, spacing: 4) {
+            // Sender name for group messages from others.
+            if case .group = target, !isMine, let name = message.fromUserName {
+                Text(name)
+                    .font(.caption.bold())
+                    .foregroundColor(theme.metaText)
+            }
             if let ticketId = message.ticketId {
                 Button {
                     // Reuse the existing deep-link pipeline to open the ticket.
@@ -66,29 +150,135 @@ struct ChatConversationView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             }
-            Text(message.body)
-                .padding(10)
-                .background(isMine ? Color.accentColor.opacity(0.85) : Color(.systemGray5).opacity(0.9))
-                .foregroundColor(isMine ? .white : .primary)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+            if let attachmentId = message.attachmentId {
+                ChatAttachmentView(
+                    attachmentId: attachmentId,
+                    filename: message.attachmentName ?? "attachment",
+                    mimeType: message.attachmentMime ?? "application/octet-stream",
+                    target: target,
+                    previewURL: $previewURL
+                )
+            }
+            if !message.body.isEmpty {
+                Text(attributedBody(message))
+                    .padding(10)
+                    .background(isMine ? theme.myBubble : theme.partnerBubble)
+                    .foregroundColor(isMine ? theme.myText : theme.partnerText)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
             HStack(spacing: 4) {
                 Image(systemName: message.isEncrypted ? "lock.fill" : "lock.open.fill")
-                    .foregroundColor(message.isEncrypted ? .secondary : .orange)
+                    .foregroundColor(message.isEncrypted ? theme.metaText : .orange)
                     .accessibilityLabel((message.isEncrypted ? "chat_encrypted_label" : "chat_unencrypted_label").localized())
                 if !message.isEncrypted {
                     Text("chat_unencrypted_label".localized())
                         .foregroundColor(.orange)
                 }
                 Text(message.createdAt.formatted(date: .omitted, time: .shortened))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(theme.metaText)
             }
             .font(.caption2)
         }
         .frame(maxWidth: .infinity, alignment: isMine ? .trailing : .leading)
     }
 
+    /// Bolds @mentions of conversation members (and ourselves) in the body.
+    private func attributedBody(_ message: ChatMessage) -> AttributedString {
+        var attributed = AttributedString(message.body)
+        var names = mentionCandidates.map(\.name)
+        if let me = viewModel.currentUser?.fullname { names.append(me) }
+        for name in names {
+            var searchStart = attributed.startIndex
+            while searchStart < attributed.endIndex,
+                  let range = attributed[searchStart...].range(of: "@" + name) {
+                attributed[range].font = .body.bold()
+                searchStart = range.upperBound
+            }
+        }
+        return attributed
+    }
+
+    private var mentionBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(mentionSuggestions) { user in
+                    Button {
+                        insertMention(user)
+                    } label: {
+                        Text("@\(user.name)")
+                            .font(.callout.bold())
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.thinMaterial, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+        }
+        .background(.ultraThinMaterial)
+    }
+
+    private func insertMention(_ user: ChatUser) {
+        guard let atIndex = draft.lastIndex(of: "@") else { return }
+        draft = String(draft[..<atIndex]) + "@\(user.name) "
+    }
+
+    private var pendingItemsBar: some View {
+        HStack(spacing: 8) {
+            if let ticket = pendingTicket {
+                HStack(spacing: 4) {
+                    Image(systemName: "ticket")
+                    Text(String(format: "chat_ticket_reference".localized(), ticket.number))
+                        .lineLimit(1)
+                    Button(action: { pendingTicket = nil }) {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                }
+                .font(.caption)
+                .padding(8)
+                .background(.thinMaterial, in: Capsule())
+            }
+            if let attachment = pendingAttachment {
+                HStack(spacing: 4) {
+                    Image(systemName: attachment.isImage ? "photo" : "doc")
+                    Text(attachment.filename)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Button(action: { pendingAttachment = nil }) {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                }
+                .font(.caption)
+                .padding(8)
+                .background(.thinMaterial, in: Capsule())
+            }
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 4)
+    }
+
     private var inputBar: some View {
         HStack(spacing: 8) {
+            Menu {
+                Button(action: { isShowingTicketSearch = true }) {
+                    Label("chat_search_ticket".localized(), systemImage: "ticket")
+                }
+                Button(action: { isShowingFileImporter = true }) {
+                    Label("chat_attach_file".localized(), systemImage: "doc")
+                }
+            } label: {
+                Image(systemName: "paperclip")
+                    .font(.title3)
+            }
+
+            PhotosPicker(selection: $photoPickerItem, matching: .images) {
+                Image(systemName: "photo")
+                    .font(.title3)
+            }
+
             TextField("chat_message_placeholder".localized(), text: $draft, axis: .vertical)
                 .lineLimit(1...4)
                 .padding(10)
@@ -102,21 +292,59 @@ struct ChatConversationView: View {
                         .font(.title)
                 }
             }
-            .disabled(isSending || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(isSending || (draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && pendingAttachment == nil))
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
         .background(.ultraThinMaterial)
     }
 
+    // MARK: - Attachments (outgoing)
+
+    private func loadPhoto(_ item: PhotosPickerItem) async {
+        defer { photoPickerItem = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else { return }
+        // Downscale for transfer: max 2048px, JPEG.
+        let maxDimension: CGFloat = 2048
+        let scale = min(1, maxDimension / max(image.size.width, image.size.height))
+        let targetSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: targetSize)) }
+        guard let jpeg = resized.jpegData(compressionQuality: 0.8) else { return }
+        guard jpeg.count <= PendingChatAttachment.maxBytes else {
+            errorMessage = "chat_attachment_too_large".localized()
+            return
+        }
+        pendingAttachment = PendingChatAttachment(data: jpeg, filename: "photo-\(Int(Date().timeIntervalSince1970)).jpg", mimeType: "image/jpeg")
+    }
+
+    private func loadFile(_ url: URL) {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else { return }
+        guard data.count <= PendingChatAttachment.maxBytes else {
+            errorMessage = "chat_attachment_too_large".localized()
+            return
+        }
+        let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+        pendingAttachment = PendingChatAttachment(data: data, filename: url.lastPathComponent, mimeType: mime)
+    }
+
     // MARK: - Data
 
     private func loadInitial() async {
+        // Show cached history immediately, then top up from the server.
+        let cached = ChatHistoryStore.shared.load(key: target.id)
+        if !cached.isEmpty { messages = cached }
         do {
-            messages = try await chatService.fetchMessages(with: partner)
-            await chatService.markRead(partnerId: partner.id)
+            let new = try await chatService.fetchMessages(for: target, since: cached.last?.id)
+            messages = ChatHistoryStore.shared.merge(new, key: target.id)
+            await chatService.markRead(target: target)
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            if messages.isEmpty {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
         }
     }
 
@@ -124,27 +352,166 @@ struct ChatConversationView: View {
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: pollInterval)
             guard !Task.isCancelled else { return }
-            if let new = try? await chatService.fetchMessages(with: partner, since: messages.last?.id), !new.isEmpty {
-                messages.append(contentsOf: new)
-                await chatService.markRead(partnerId: partner.id)
+            if let new = try? await chatService.fetchMessages(for: target, since: messages.last?.id), !new.isEmpty {
+                messages = ChatHistoryStore.shared.merge(new, key: target.id)
+                await chatService.markRead(target: target)
             }
         }
     }
 
     private func send() {
         let body = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty else { return }
+        guard !body.isEmpty || pendingAttachment != nil else { return }
         isSending = true
         errorMessage = nil
+        let ticket = pendingTicket
+        let attachment = pendingAttachment
         Task {
             do {
-                let message = try await chatService.send(to: partner, body: body)
-                messages.append(message)
+                let message = try await chatService.send(to: target, body: body, ticket: ticket, attachment: attachment)
+                messages = ChatHistoryStore.shared.merge([message], key: target.id)
                 draft = ""
+                pendingTicket = nil
+                pendingAttachment = nil
             } catch {
                 errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }
             isSending = false
+        }
+    }
+}
+
+// MARK: - Attachment bubble
+
+/// Renders an encrypted chat attachment: inline thumbnail for images, a
+/// document chip for other files. Tapping opens a Quick Look preview.
+private struct ChatAttachmentView: View {
+    let attachmentId: Int
+    let filename: String
+    let mimeType: String
+    let target: ChatTarget
+    @Binding var previewURL: URL?
+
+    @State private var image: UIImage?
+    @State private var isLoading = false
+
+    private var isImage: Bool { mimeType.hasPrefix("image/") }
+
+    var body: some View {
+        Group {
+            if isImage {
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(maxWidth: 220, maxHeight: 260)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .onTapGesture { Task { await preview() } }
+                } else {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color(.systemGray5).opacity(0.6))
+                        .frame(width: 220, height: 160)
+                        .overlay(ProgressView())
+                        .task { await loadImage() }
+                }
+            } else {
+                Button {
+                    Task { await preview() }
+                } label: {
+                    HStack(spacing: 6) {
+                        if isLoading {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "doc.fill")
+                        }
+                        Text(filename)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .font(.caption.bold())
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+    }
+
+    private func loadImage() async {
+        guard let data = try? await ChatService.shared.downloadAttachment(id: attachmentId, for: target) else { return }
+        image = UIImage(data: data)
+    }
+
+    private func preview() async {
+        isLoading = true
+        defer { isLoading = false }
+        guard let data = try? await ChatService.shared.downloadAttachment(id: attachmentId, for: target) else { return }
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("chat_attachments", isDirectory: true)
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        let fileURL = tempDir.appendingPathComponent("\(attachmentId)_\(filename)")
+        try? data.write(to: fileURL, options: .atomic)
+        previewURL = fileURL
+    }
+}
+
+// MARK: - Ticket search sheet (# trigger)
+
+/// Search tickets and pick one to attach to the outgoing chat message.
+private struct ChatTicketSearchSheet: View {
+    let onSelect: (Ticket) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var query = ""
+    @State private var results: [Ticket] = []
+    @State private var isSearching = false
+
+    var body: some View {
+        NavigationStack {
+            List(results) { ticket in
+                Button {
+                    onSelect(ticket)
+                    dismiss()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(ticket.title)
+                            .font(.headline)
+                            .lineLimit(1)
+                        Text("#\(ticket.number)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .overlay {
+                if isSearching {
+                    ProgressView()
+                } else if results.isEmpty && !query.isEmpty {
+                    Text("no_search_results".localized())
+                        .foregroundColor(.secondary)
+                }
+            }
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always))
+            .onSubmit(of: .search) { search() }
+            .onChange(of: query) { _, _ in search() }
+            .navigationTitle("chat_search_ticket".localized())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("cancel".localized()) { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func search() {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard trimmed.count >= 2 else { return }
+        isSearching = true
+        Task {
+            let found = (try? await ZammadAPIService.shared.searchTickets(query: trimmed)) ?? []
+            await MainActor.run {
+                results = found
+                isSearching = false
+            }
         }
     }
 }
