@@ -613,6 +613,50 @@ you just sent reads as a bug.
 `retention.js` deletes `chat_message_keys` rows whose message is gone, along
 with the existing message and orphaned-attachment sweeps.
 
+## v3.1: Deletion
+
+### DELETE /api/chat/messages/:id
+Deletes one of the caller's own messages **for everyone**. Verify the caller is
+the sender (`from_user_id`); return `403` otherwise. Do not hard-delete —
+**tombstone** the row so clients that reload the conversation see it disappear:
+
+```sql
+UPDATE chat_messages
+SET body = '', deleted = 1, ticket_id = NULL, ticket_number = NULL,
+    attachment_id = NULL, attachment_name = NULL, attachment_mime = NULL
+WHERE id = ? AND from_user_id = ?
+```
+Also delete the referenced attachment blob if no other message uses it, and
+drop the message's `chat_message_keys` rows — they wrap a body that no longer
+exists. Include `deleted` (boolean) in all message JSON; clients render
+tombstones as "Message deleted". Response: `{ "ok": true }`.
+
+Deleting an already-tombstoned message answers `{ "ok": true }` again rather
+than erroring, so a retry after a dropped connection is harmless; an unknown id
+is `404`.
+
+Propagation note: clients poll with `since=<last id>`, so an already-fetched
+message disappears from other devices when they next reload the conversation
+(fresh open), not mid-poll. Acceptable for v3.1.
+
+### POST /api/chat/conversations/delete
+Body: `{ "with_user_id": 13 }` **or** `{ "group_id": 3 }`. Response `{ "ok": true }`.
+
+- **Direct chat** (`with_user_id`): hard-delete all messages between the two
+  users (both directions) and their attachment blobs. This removes the
+  conversation **for both participants** — the app warns the user before calling.
+- **Group** (`group_id`):
+  - Caller is the **creator** → delete the group, all memberships/wrapped keys,
+    all messages and their attachments (for everyone).
+  - Caller is a regular **member** → remove only the caller's membership row and
+    wrapped key(s) ("leave group"); messages remain for the others. Stop
+    pushing group notifications to them.
+
+  Leaving takes every wrapped group key held by that member's devices
+  (`chat_group_device_keys`), so nothing they could still decrypt is left
+  behind. Pushes and `/groups` both key off membership, so removing the row is
+  what stops the notifications. A non-member gets `403` either way.
+
 ## APNS environments (dev vs TestFlight/App Store)
 
 The APNS host must match the build that registered the device token, or Apple

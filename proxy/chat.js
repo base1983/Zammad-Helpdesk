@@ -5,8 +5,8 @@
 // of sqlite, and the existing APNs provider from server.js. See PROXY_CHAT_API.md
 // in the iOS app repo for the client contract (ChatService.swift).
 //
-// Protocol level: v4 — direct messages, groups and attachments, with per-device
-// keys. Bodies, group keys and attachment blobs are end-to-end encrypted by the
+// Protocol level: v4 + v3.1 deletion — direct messages, groups, attachments and
+// per-device keys, plus message/conversation deletion. Bodies, group keys and attachment blobs are end-to-end encrypted by the
 // client; the proxy stores them verbatim and can never read them.
 //
 // v4 changes the key model from one key per *user* to one key per *device*, so
@@ -113,6 +113,7 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
                     attachment_id BIGINT NULL,
                     attachment_name VARCHAR(255) NULL,
                     attachment_mime VARCHAR(128) NULL,
+                    deleted TINYINT(1) NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     read_at TIMESTAMP NULL,
                     INDEX idx_msg_pair (from_user_id, to_user_id, id),
@@ -125,6 +126,8 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
             await migrate(conn, 'ALTER TABLE chat_messages ADD COLUMN attachment_name VARCHAR(255) NULL', 'chat_messages.attachment_name');
             await migrate(conn, 'ALTER TABLE chat_messages ADD COLUMN attachment_mime VARCHAR(128) NULL', 'chat_messages.attachment_mime');
             await migrate(conn, 'ALTER TABLE chat_messages ADD INDEX idx_msg_group (group_id, id)', 'chat_messages idx_msg_group');
+            // v3.1: tombstone flag for messages the sender deleted for everyone.
+            await migrate(conn, 'ALTER TABLE chat_messages ADD COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0', 'chat_messages.deleted');
             // Group messages have no recipient — to_user_id must be nullable.
             // Only ALTER when it isn't already: MODIFY rebuilds the table, and
             // chat_messages is the one table that actually grows.
@@ -248,6 +251,9 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
         attachment_name: m.attachment_name != null ? m.attachment_name : null,
         attachment_mime: m.attachment_mime != null ? m.attachment_mime : null,
         created_at: isoUTC(m.created_at),
+        // v3.1: the sender deleted this one for everyone; body is empty and the
+        // client renders a "Message deleted" tombstone in its place.
+        deleted: !!m.deleted,
         // v4: the calling device's copy of the body key, and the public key to
         // unwrap it against. Null for group messages (the group key is used) and
         // for direct messages this device was not a recipient of.
@@ -436,6 +442,33 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
             [groupId, userId]
         );
         return rows[0] ? Number(rows[0].last_read_message_id) : 0;
+    }
+
+    // --- Deletion helpers ------------------------------------------------
+
+    // Drop attachment blobs that no message references any more. Always call
+    // this *after* the messages are gone (or tombstoned), never before.
+    async function deleteOrphanedAttachments(conn, attachmentIds) {
+        const ids = [...new Set(attachmentIds.map(Number).filter(Boolean))];
+        if (!ids.length) return 0;
+        const result = await conn.query(`
+            DELETE FROM chat_attachments
+            WHERE id IN (${ids.map(() => '?').join(',')})
+              AND id NOT IN (SELECT attachment_id FROM chat_messages WHERE attachment_id IS NOT NULL)
+        `, ids);
+        return Number(result.affectedRows || 0);
+    }
+
+    // Hard-delete a set of messages with everything hanging off them: the
+    // per-device body keys, and any attachment left without a referent.
+    async function purgeMessages(conn, messages) {
+        if (!messages.length) return;
+        const ids = messages.map((m) => Number(m.id));
+        const attachmentIds = messages.map((m) => m.attachment_id).filter((id) => id != null);
+        const placeholders = ids.map(() => '?').join(',');
+        await conn.query(`DELETE FROM chat_message_keys WHERE message_id IN (${placeholders})`, ids);
+        await conn.query(`DELETE FROM chat_messages WHERE id IN (${placeholders})`, ids);
+        await deleteOrphanedAttachments(conn, attachmentIds);
     }
 
     // --- Push helpers ----------------------------------------------------
@@ -975,6 +1008,141 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
             res.json({ ok: true });
         } catch (err) {
             console.error('[Chat] read error:', err);
+            res.status(500).json({ error: 'Database error.' });
+        } finally {
+            if (conn) conn.release();
+        }
+    });
+
+    // DELETE /messages/:id — the sender deletes their own message for everyone.
+    // The row is tombstoned rather than removed, so a client that reloads the
+    // conversation sees it turn into "Message deleted" instead of silently
+    // losing an id it already has.
+    router.delete('/messages/:id', async (req, res) => {
+        let conn;
+        try {
+            const me = await callerChatUser(req);
+            const id = parseInt(req.params.id, 10);
+            if (!me || !id) return res.status(400).json({ error: 'Invalid message id.' });
+
+            conn = await pool.getConnection();
+            const rows = await conn.query('SELECT * FROM chat_messages WHERE id = ?', [id]);
+            const message = rows[0];
+            if (!message) return res.status(404).json({ error: 'Message not found.' });
+            if (Number(message.from_user_id) !== Number(me.id)) {
+                return res.status(403).json({ error: 'Only the sender can delete this message.' });
+            }
+            if (message.deleted) return res.json({ ok: true }); // already a tombstone
+
+            await conn.beginTransaction();
+            try {
+                await conn.query(`
+                    UPDATE chat_messages
+                    SET body = '', deleted = 1, ticket_id = NULL, ticket_number = NULL,
+                        attachment_id = NULL, attachment_name = NULL, attachment_mime = NULL,
+                        sender_public_key = NULL
+                    WHERE id = ? AND from_user_id = ?
+                `, [id, me.id]);
+                // The wrapped body keys guard a body that no longer exists.
+                await conn.query('DELETE FROM chat_message_keys WHERE message_id = ?', [id]);
+                await conn.commit();
+            } catch (e) {
+                await conn.rollback();
+                throw e;
+            }
+
+            await deleteOrphanedAttachments(conn, [message.attachment_id]);
+            res.json({ ok: true });
+        } catch (err) {
+            console.error('[Chat] delete message error:', err);
+            res.status(500).json({ error: 'Database error.' });
+        } finally {
+            if (conn) conn.release();
+        }
+    });
+
+    // POST /conversations/delete — {with_user_id} wipes a direct conversation
+    // for both participants; {group_id} deletes the group for everyone when the
+    // caller created it, and is a plain "leave group" for any other member.
+    router.post('/conversations/delete', async (req, res) => {
+        let conn;
+        try {
+            const me = await callerChatUser(req);
+            const partnerId = parseInt(req.body?.with_user_id, 10);
+            const groupId = parseInt(req.body?.group_id, 10);
+            if (!me || (!partnerId && !groupId)) {
+                return res.status(400).json({ error: 'with_user_id or group_id is required.' });
+            }
+            conn = await pool.getConnection();
+
+            if (groupId) {
+                const grows = await conn.query('SELECT * FROM chat_groups WHERE id = ?', [groupId]);
+                const group = grows[0];
+                if (!group || group.instance_url !== me.instance_url ||
+                    !(await isGroupMember(conn, groupId, me.id))) {
+                    return res.status(403).json({ error: 'Not a member of this group.' });
+                }
+                const isCreator = Number(group.creator_id) === Number(me.id);
+
+                await conn.beginTransaction();
+                try {
+                    if (isCreator) {
+                        const messages = await conn.query(
+                            'SELECT id, attachment_id FROM chat_messages WHERE group_id = ?', [groupId]
+                        );
+                        await purgeMessages(conn, messages);
+                        await conn.query('DELETE FROM chat_group_device_keys WHERE group_id = ?', [groupId]);
+                        await conn.query('DELETE FROM chat_group_members WHERE group_id = ?', [groupId]);
+                        await conn.query('DELETE FROM chat_group_reads WHERE group_id = ?', [groupId]);
+                        await conn.query('DELETE FROM chat_groups WHERE id = ?', [groupId]);
+                    } else {
+                        // Leaving takes this member's own rows only — the
+                        // conversation stays intact for everyone else. Their
+                        // devices' wrapped group keys go too, so nothing they
+                        // could still decrypt is left behind, and /groups no
+                        // longer lists it for them (which also stops the pushes).
+                        const devices = await conn.query(
+                            'SELECT id FROM chat_devices WHERE chat_user_id = ?', [me.id]
+                        );
+                        if (devices.length) {
+                            const deviceIds = devices.map((d) => Number(d.id));
+                            await conn.query(
+                                `DELETE FROM chat_group_device_keys
+                                 WHERE group_id = ? AND device_id IN (${deviceIds.map(() => '?').join(',')})`,
+                                [groupId, ...deviceIds]
+                            );
+                        }
+                        await conn.query('DELETE FROM chat_group_members WHERE group_id = ? AND user_id = ?', [groupId, me.id]);
+                        await conn.query('DELETE FROM chat_group_reads WHERE group_id = ? AND user_id = ?', [groupId, me.id]);
+                    }
+                    await conn.commit();
+                } catch (e) {
+                    await conn.rollback();
+                    throw e;
+                }
+            } else {
+                const prows = await conn.query('SELECT instance_url FROM chat_users WHERE id = ?', [partnerId]);
+                if (!prows[0] || prows[0].instance_url !== me.instance_url) {
+                    return res.status(400).json({ error: 'Invalid partner.' });
+                }
+                await conn.beginTransaction();
+                try {
+                    const messages = await conn.query(`
+                        SELECT id, attachment_id FROM chat_messages
+                        WHERE group_id IS NULL
+                          AND ((from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?))
+                    `, [me.id, partnerId, partnerId, me.id]);
+                    await purgeMessages(conn, messages);
+                    await conn.commit();
+                } catch (e) {
+                    await conn.rollback();
+                    throw e;
+                }
+            }
+
+            res.json({ ok: true });
+        } catch (err) {
+            console.error('[Chat] delete conversation error:', err);
             res.status(500).json({ error: 'Database error.' });
         } finally {
             if (conn) conn.release();
