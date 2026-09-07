@@ -9,11 +9,18 @@ struct SettingsView: View {
     
     // --- App Settings (via AppStorage voor automatische persistentie) ---
     @AppStorage("is_biometric_lock_enabled", store: Self.groupDefaults) private var isLockEnabled: Bool = false
+    @AppStorage("are_ads_removed", store: Self.groupDefaults) private var areAdsRemoved: Bool = false
     @AppStorage("color_scheme_option", store: Self.groupDefaults) private var colorSchemeOption: String = "system"
+    @AppStorage("background_light_option", store: Self.groupDefaults) private var lightBackgroundOption: String = BackgroundOption.flowers.rawValue
+    @AppStorage("background_dark_option", store: Self.groupDefaults) private var darkBackgroundOption: String = BackgroundOption.pebbles.rawValue
+    @AppStorage("chat_theme_light", store: Self.groupDefaults) private var lightChatTheme: String = ChatTheme.defaultLight.rawValue
+    @AppStorage("chat_theme_dark", store: Self.groupDefaults) private var darkChatTheme: String = ChatTheme.defaultDark.rawValue
+    @AppStorage(ChatHistoryStore.retentionKey, store: Self.groupDefaults) private var chatRetentionDays: Int = ChatHistoryStore.defaultRetentionDays
     
     // --- Server Config ---
     @AppStorage("zammad_server_url", store: Self.groupDefaults) private var serverURL: String = ""
-    @AppStorage("zammad_api_token", store: Self.groupDefaults) private var apiToken: String = ""
+    // Token lives in the Keychain (via SettingsManager), not in UserDefaults.
+    @State private var apiToken: String = SettingsManager.shared.loadToken() ?? ""
     
     // --- Lokale State ---
     @State private var testStatus: String?
@@ -33,6 +40,9 @@ struct SettingsView: View {
                 
                 // 3. Uiterlijk
                 appearanceSection
+                
+                // 3b. Chat
+                chatSection
                 
                 // 4. Notificaties (De nieuwe logica)
                 notificationsSection
@@ -108,12 +118,16 @@ struct SettingsView: View {
         .sheet(isPresented: $isShowingLoginSheet) {
             PasswordLoginSheet(serverURL: serverURL) { newToken in
                 apiToken = newToken
+                // Persist immediately so a freshly minted token survives
+                // even if the settings sheet is swiped away without saving.
+                SettingsManager.shared.save(token: newToken)
                 testStatus = "connection_successful".localized()
             }
         }
         .sheet(isPresented: $isShowingSSOSheet) {
             SSOLoginView(serverURL: serverURL) { newToken in
                 apiToken = newToken
+                SettingsManager.shared.save(token: newToken)
                 testStatus = "connection_successful".localized()
             }
         }
@@ -135,6 +149,95 @@ struct SettingsView: View {
                 }
             }
             .pickerStyle(.segmented)
+
+            backgroundPicker(
+                title: "background_light_mode".localized(),
+                systemImage: "sun.max",
+                wallpapers: BackgroundOption.lightWallpapers,
+                colors: BackgroundOption.lightColors,
+                selection: $lightBackgroundOption
+            )
+            backgroundPicker(
+                title: "background_dark_mode".localized(),
+                systemImage: "moon",
+                wallpapers: BackgroundOption.darkWallpapers,
+                colors: BackgroundOption.darkColors,
+                selection: $darkBackgroundOption
+            )
+
+            chatThemePicker(title: "chat_theme_light_mode".localized(), systemImage: "bubble.left", themes: ChatTheme.lightThemes, selection: $lightChatTheme)
+            chatThemePicker(title: "chat_theme_dark_mode".localized(), systemImage: "bubble.left.fill", themes: ChatTheme.darkThemes, selection: $darkChatTheme)
+        }
+    }
+
+    // MARK: - 3b. Chat Section
+    private var chatSection: some View {
+        Section(
+            header: Text("chat".localized()),
+            footer: Text("chat_history_retention_footer".localized())
+        ) {
+            Picker(selection: $chatRetentionDays) {
+                Text("chat_retention_30".localized()).tag(30)
+                Text("chat_retention_90".localized()).tag(90)
+                Text("chat_retention_180".localized()).tag(180)
+                Text("chat_retention_365".localized()).tag(365)
+                Text("chat_retention_forever".localized()).tag(0)
+            } label: {
+                Label("chat_history_retention".localized(), systemImage: "clock.arrow.circlepath")
+            }
+            .onChange(of: chatRetentionDays) { _, _ in
+                Task.detached(priority: .utility) { ChatHistoryStore.shared.pruneAll() }
+            }
+        }
+    }
+
+    private func chatThemePicker(title: String, systemImage: String, themes: [ChatTheme], selection: Binding<String>) -> some View {
+        NavigationLink {
+            ChatThemePickerView(title: title, themes: themes, selection: selection)
+        } label: {
+            HStack {
+                Label(title, systemImage: systemImage)
+                Spacer()
+                ChatThemePreview(theme: ChatTheme(rawValue: selection.wrappedValue) ?? themes[0])
+                    .frame(width: 30, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 6)
+                            .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
+                    }
+            }
+        }
+    }
+
+    private func backgroundPicker(title: String, systemImage: String, wallpapers: [BackgroundOption], colors: [BackgroundOption], selection: Binding<String>) -> some View {
+        NavigationLink {
+            BackgroundPickerView(title: title, wallpapers: wallpapers, colors: colors, selection: selection)
+        } label: {
+            HStack {
+                Label(title, systemImage: systemImage)
+                Spacer()
+                backgroundPreviewSwatch(for: BackgroundOption(rawValue: selection.wrappedValue) ?? wallpapers[0])
+            }
+        }
+    }
+
+    /// Miniature preview of the currently selected background.
+    private func backgroundPreviewSwatch(for option: BackgroundOption) -> some View {
+        Group {
+            switch option.previewStyle {
+            case .image(let name):
+                Image(name)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            case .color(let color):
+                color
+            }
+        }
+        .frame(width: 24, height: 40)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
         }
     }
     
@@ -145,6 +248,15 @@ struct SettingsView: View {
                 Text("configure_server_for_notifications".localized())
                     .font(.caption)
                     .foregroundColor(.secondary)
+            } else if !areAdsRemoved {
+                // Real-time notifications and the icon badge are premium.
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "crown.fill")
+                        .foregroundColor(.yellow)
+                    Text("notifications_premium_required".localized())
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             } else {
                 // Hier roepen we de slimme sectie aan
                 NotificationSettingsSection()
@@ -402,6 +514,9 @@ private struct InAppPurchaseView: View {
                 }
                 if let yearly = storeManager.yearlyProduct {
                     productButton(for: yearly, description: "premium_description_yearly".localized())
+                }
+                if let lifetime = storeManager.lifetimeProduct {
+                    productButton(for: lifetime, description: "premium_description_lifetime".localized())
                 }
             }
             

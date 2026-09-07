@@ -22,6 +22,14 @@ class NotificationSetupManager: ObservableObject {
     
     // 1. Wordt aangeroepen door de Toggle in je instellingen-scherm
     func enableNotifications() {
+        guard SettingsManager.shared.isPremium() else {
+            DispatchQueue.main.async {
+                self.isLoading = false
+                self.errorMessage = "notifications_premium_required".localized()
+            }
+            return
+        }
+
         DispatchQueue.main.async {
             self.isLoading = true
             self.errorMessage = nil
@@ -62,6 +70,15 @@ class NotificationSetupManager: ObservableObject {
                 try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 sec
                 
                 await NotificationProxyService.shared.updateRegistration(isSubscribing: true)
+                
+                // STAP B2: Ververs de chatregistratie zodat het zojuist
+                // aangemaakte proxy user ID (en dus het device token) aan onze
+                // chatidentiteit gekoppeld wordt — anders komen chatpushes
+                // nooit aan.
+                if let user = try? await ZammadAPIService.shared.fetchCurrentUser() {
+                    _ = try? await ChatService.shared.register(currentUser: user)
+                    print("DEBUG: [Manager] Chatregistratie ververst met proxy user ID.")
+                }
                 
                 // STAP C: Update UI
                 await MainActor.run {

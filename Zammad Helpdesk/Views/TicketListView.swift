@@ -6,9 +6,11 @@ struct TicketListContainerView: View {
     
     @ObservedObject var viewModel: TicketViewModel
     @ObservedObject private var readStatusManager = ReadStatusManager.shared
+    @ObservedObject private var chatService = ChatService.shared
     
     @State private var isShowingCreateTicket = false
     @State private var isShowingSettings = false
+    @State private var isShowingChat = false
     private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
     @AppStorage("are_ads_removed", store: Self.groupDefaults) private var areAdsRemoved: Bool = false
     
@@ -39,6 +41,9 @@ struct TicketListContainerView: View {
                     .navigationDestination(for: Ticket.self) { ticket in
                         TicketDetailView(ticketID: ticket.id, viewModel: viewModel)
                     }
+                    .navigationDestination(isPresented: $isShowingChat) {
+                        ChatListView(viewModel: viewModel)
+                    }
                     .toolbar { navigationToolbar(width: geometry.size.width) }
                     .toolbarBackground(.hidden, for: .navigationBar)
                 }
@@ -57,6 +62,12 @@ struct TicketListContainerView: View {
             if deepLinkManager.pendingTicketID == nil {
                 Task { await viewModel.refreshAllData() }
             }
+            Task { await chatService.refreshUnreadCount() }
+        }
+        .onReceive(DeepLinkManager.shared.$pendingChatPartnerID) { partnerID in
+            // A chat push was tapped: open the chat screen; ChatListView picks
+            // up the pending partner and opens the conversation.
+            if partnerID != nil { isShowingChat = true }
         }
         .onChange(of: searchText) { _, newValue in
             if newValue.isEmpty && isSearchActive {
@@ -163,6 +174,19 @@ struct TicketListContainerView: View {
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack {
+                    Button(action: { isShowingChat = true }) { Image(systemName: "bubble.left.and.bubble.right") }
+                        .toolbarButtonStyle()
+                        .overlay(alignment: .topTrailing) {
+                            if chatService.totalUnread > 0 {
+                                Text("\(chatService.totalUnread)")
+                                    .font(.caption2.bold())
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill(Color.red))
+                                    .offset(x: 6, y: -6)
+                            }
+                        }
                     Button(action: { isShowingCreateTicket = true }) { Image(systemName: "plus.circle") }.toolbarButtonStyle()
                     Button(action: { withAnimation { isSearchActive = true; isSearchFieldFocused = true } }) { Image(systemName: "magnifyingglass") }.toolbarButtonStyle()
                     filterMenu

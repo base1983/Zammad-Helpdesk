@@ -14,7 +14,26 @@
 
   ],
   "products" : [
-
+    {
+      "displayPrice" : "49.00",
+      "familyShareable" : false,
+      "internalID" : "6752735001",
+      "localizations" : [
+        {
+          "description" : "One-time purchase. Premium forever.",
+          "displayName" : "Lifetime unlock",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "Eenmalige aankoop. Voor altijd premium.",
+          "displayName" : "Lifetime ontgrendeling",
+          "locale" : "nl"
+        }
+      ],
+      "productID" : "com.baseonline.zammadmobile.premium.lifetime",
+      "referenceName" : "Lifetime unlock",
+      "type" : "NonConsumable"
+    }
   ],
   "settings" : {
     "_applicationInternalID" : "6751843527",

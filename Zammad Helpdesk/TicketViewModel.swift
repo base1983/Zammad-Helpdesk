@@ -134,6 +134,10 @@ class TicketViewModel: ObservableObject {
         ticketStates = loadedStates
         ticketPriorities = loadedPriorities
         currentUser = loadedUser
+
+        // Register in the chat directory so colleagues can find us without us
+        // having to open the chat screen first. Fire-and-forget.
+        Task { try? await ChatService.shared.register(currentUser: loadedUser) }
         allUsers = loadedAllUsers
         roles = loadedRoles
         groups = loadedGroups
@@ -305,6 +309,11 @@ class TicketViewModel: ObservableObject {
     // MARK: - Badge Logic
         func updateApplicationBadge() {
             Task { @MainActor in
+                // The app icon badge is a premium feature.
+                guard SettingsManager.shared.isPremium() else {
+                    try? await UNUserNotificationCenter.current().setBadgeCount(0)
+                    return
+                }
                 // Filter the CURRENT list to find unread items
                 let unreadCount = self.currentTickets.filter { ticket in
                     ReadStatusManager.shared.isUnread(ticket: ticket, currentUser: self.currentUser)

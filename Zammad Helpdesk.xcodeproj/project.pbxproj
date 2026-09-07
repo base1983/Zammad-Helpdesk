@@ -456,13 +456,13 @@
 				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk/Zammad Helpdesk.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 22.3;
+				CURRENT_PROJECT_VERSION = 10008;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Zammad-Helpdesk-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Zammad Helpdesk";
+				INFOPLIST_KEY_CFBundleDisplayName = "Helpdesk for Zammad";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "To secure your app and protect your ticket data";
@@ -476,7 +476,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.World-ICT.Zammad-Helpdesk";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -495,12 +495,12 @@
 				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk/Zammad Helpdesk.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 22.3;
+				CURRENT_PROJECT_VERSION = 10008;
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Zammad-Helpdesk-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Zammad Helpdesk";
+				INFOPLIST_KEY_CFBundleDisplayName = "Helpdesk for Zammad";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "To secure your app and protect your ticket data";
@@ -514,7 +514,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.World-ICT.Zammad-Helpdesk";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -536,7 +536,7 @@
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Zammad Helpdesk Watch App";
+				INFOPLIST_KEY_CFBundleDisplayName = "Helpdesk for Zammad";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.World-ICT.Zammad-Helpdesk";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -571,7 +571,7 @@
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Zammad Helpdesk Watch App";
+				INFOPLIST_KEY_CFBundleDisplayName = "Helpdesk for Zammad";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "com.World-ICT.Zammad-Helpdesk";
 				LD_RUNPATH_SEARCH_PATHS = (

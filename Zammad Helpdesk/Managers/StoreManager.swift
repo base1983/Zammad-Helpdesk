@@ -9,12 +9,14 @@ typealias SubscriptionStatus = StoreKit.Product.SubscriptionInfo.RenewalState
 class StoreManager: ObservableObject {
     @Published var monthlyProduct: Product?
     @Published var yearlyProduct: Product?
+    @Published var lifetimeProduct: Product?
     @Published var isTransactionInProgress = false
     @Published var subscriptionGroupStatus: SubscriptionStatus?
     @Published var isLoadingProducts = false
 
     private let monthlyProductID = "com.baseonline.zammadmobile.premium.month"
     private let yearlyProductID = "com.baseonline.zammadmobile.premium.yearly"
+    private let lifetimeProductID = "com.baseonline.zammadmobile.premium.lifetime"
     private var transactionListener: TransactionUpdateListener?
 
     init() {
@@ -22,7 +24,7 @@ class StoreManager: ObservableObject {
         Task {
             isLoadingProducts = true
             await fetchProducts()
-            await checkSubscriptionStatus()
+            await checkEntitlements()
             isLoadingProducts = false
         }
     }
@@ -33,10 +35,11 @@ class StoreManager: ObservableObject {
 
     func fetchProducts() async {
         do {
-            let products = try await Product.products(for: [monthlyProductID, yearlyProductID])
+            let products = try await Product.products(for: [monthlyProductID, yearlyProductID, lifetimeProductID])
             for product in products {
                 if product.id == monthlyProductID { monthlyProduct = product }
                 else if product.id == yearlyProductID { yearlyProduct = product }
+                else if product.id == lifetimeProductID { lifetimeProduct = product }
             }
         } catch {
             print("Failed to fetch products: \(error)")
@@ -60,21 +63,42 @@ class StoreManager: ObservableObject {
         } catch {
             print("Failed to restore purchases: \(error)")
         }
+        // Re-evaluate entitlements regardless of the sync outcome — this also
+        // (re)applies the automatic TestFlight grant.
+        await checkEntitlements()
     }
 
-    func checkSubscriptionStatus() async {
-        guard let product = monthlyProduct ?? yearlyProduct,
-              let statuses = try? await product.subscription?.status else { return }
-        
-        var highestStatus: SubscriptionStatus?
-        for status in statuses {
-             highestStatus = status.state
+    /// Premium is granted by the lifetime unlock, an active subscription, or
+    /// automatically for TestFlight/development builds so testers get the
+    /// full feature set without purchasing.
+    func checkEntitlements() async {
+        var isTestBuild = false
+        if let result = try? await AppTransaction.shared,
+           case .verified(let appTransaction) = result {
+            isTestBuild = appTransaction.environment != .production
         }
-        
-        if let status = highestStatus {
-            subscriptionGroupStatus = status
-            updateAdRemovalStatus(for: status)
+
+        var hasLifetime = false
+        for await result in Transaction.currentEntitlements(for: lifetimeProductID) {
+            if case .verified(let transaction) = result, transaction.revocationDate == nil {
+                hasLifetime = true
+            }
         }
+
+        var isSubscribed = false
+        if let product = monthlyProduct ?? yearlyProduct,
+           let statuses = try? await product.subscription?.status {
+            var highestStatus: SubscriptionStatus?
+            for status in statuses {
+                highestStatus = status.state
+            }
+            if let status = highestStatus {
+                subscriptionGroupStatus = status
+                isSubscribed = status == .subscribed || status == .inGracePeriod
+            }
+        }
+
+        SettingsManager.shared.save(areAdsRemoved: hasLifetime || isSubscribed || isTestBuild)
     }
 
     private func listenForTransactionUpdates() -> TransactionUpdateListener {
@@ -93,13 +117,8 @@ class StoreManager: ObservableObject {
     
     private func handleTransactionVerification(_ result: VerificationResult<Transaction>) async {
         if case .verified(let transaction) = result {
-            await checkSubscriptionStatus()
+            await checkEntitlements()
             await transaction.finish()
         }
-    }
-    
-    private func updateAdRemovalStatus(for status: SubscriptionStatus) {
-        let areAdsRemoved = status == .subscribed || status == .inGracePeriod
-        SettingsManager.shared.save(areAdsRemoved: areAdsRemoved)
     }
 }

@@ -6,13 +6,21 @@ import WatchConnectivity
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     
-    let backgroundTaskID = "com.worldict.helpdesk.refresh"
+    // Lives for the whole app session: checks premium entitlements at launch
+    // (including the automatic TestFlight grant) and keeps the StoreKit
+    // transaction listener running.
+    @MainActor private(set) lazy var storeManager = StoreManager()
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         
         migrateUserDefaultsToAppGroupIfNeeded()
         MobileAds.shared.start(completionHandler: { _ in })
         BackgroundTaskManager.shared.registerBackgroundTask()
+        Task { @MainActor in _ = self.storeManager } // kick off the launch entitlement check
+        Task.detached(priority: .utility) {
+            // Prune on-device chat history to the configured retention window.
+            ChatHistoryStore.shared.pruneAll()
+        }
         
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
@@ -30,12 +38,17 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 .first?.backgroundColor = .clear
         }
         
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: backgroundTaskID, using: nil) { task in
-            self.handleAppRefresh(task: task as! BGAppRefreshTask)
-        }
-        
         // Initialize Watch Connectivity and send credentials
         _ = WatchConnectivityManager.shared
+        
+        // Real-time notifications became a premium feature: unsubscribe users
+        // who registered while it was free and no longer have premium.
+        if !SettingsManager.shared.isPremium() && SettingsManager.shared.areRealtimeNotificationsEnabled() {
+            SettingsManager.shared.save(areRealtimeNotificationsEnabled: false)
+            Task {
+                await NotificationProxyService.shared.updateRegistration(isSubscribing: false)
+            }
+        }
         
         return true
     }
@@ -50,6 +63,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     }
     
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // Keep the chat unread badge current when a chat push arrives in the foreground.
+        let userInfo = notification.request.content.userInfo
+        if userInfo["chat_from_user_id"] != nil || userInfo["chat_group_id"] != nil {
+            Task { @MainActor in await ChatService.shared.refreshUnreadCount() }
+        }
         completionHandler([.banner, .sound])
     }
     
@@ -65,32 +83,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         print("DEBUG: Mislukt om te registreren: \(error)")
         NotificationSetupManager.shared.handleRegistrationError(error)
-    }
-    
-    // MARK: - Background Task Handling
-    
-    func handleAppRefresh(task: BGAppRefreshTask) {
-        scheduleAppRefresh()
-        
-        Task {
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            task.setTaskCompleted(success: true)
-        }
-        
-        task.expirationHandler = {
-            task.setTaskCompleted(success: false)
-        }
-    }
-    
-    func scheduleAppRefresh() {
-        let request = BGAppRefreshTaskRequest(identifier: backgroundTaskID)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
-        
-        do {
-            try BGTaskScheduler.shared.submit(request)
-        } catch {
-            print("Kon achtergrondtaak niet inplannen: \(error)")
-        }
     }
     
     // MARK: - App Group Migration
@@ -140,7 +132,7 @@ struct Zammad_HelpdeskApp: App {
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
-                appDelegate.scheduleAppRefresh()
+                BackgroundTaskManager.shared.scheduleAppRefresh()
             }
         }
     }

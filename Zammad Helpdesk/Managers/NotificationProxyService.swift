@@ -39,6 +39,12 @@ class NotificationProxyService {
     func updateRegistration(isSubscribing: Bool) async {
         print("DEBUG: [Proxy] Start registratie update (Inschrijven: \(isSubscribing))...")
 
+        // Real-time notifications are a premium feature; unsubscribing is always allowed.
+        if isSubscribing && !SettingsManager.shared.isPremium() {
+            print("DEBUG: [Proxy] Registratie overgeslagen — premium vereist.")
+            return
+        }
+
         // 1. Haal waarden op en check of ze niet leeg zijn
         guard let deviceToken = SettingsManager.shared.loadDeviceToken(), !deviceToken.isEmpty else {
             print("DEBUG: [Proxy] FOUT - Geen Device Token gevonden in Settings.")
