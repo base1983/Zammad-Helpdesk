@@ -691,6 +691,50 @@ Body: `{ "with_user_id": 13 }` **or** `{ "group_id": 3 }`. Response `{ "ok": tru
   behind. Pushes and `/groups` both key off membership, so removing the row is
   what stops the notifications. A non-member gets `403` either way.
 
+## v3.3: Delivery & read status (WhatsApp-style ticks)
+
+Message JSON gains `delivered_at` and `read_at` (ISO 8601 or null). The app
+derives the tick state for the sender's own bubbles: null/null = sent (one
+grey tick), delivered_at set = delivered (two grey ticks), read_at set = read
+(two blue ticks).
+
+Server-side:
+
+1. **Column** `delivered_at` on `chat_messages` (read_at already exists).
+2. **Delivered**: when `GET /api/chat/messages` returns direct messages to the
+   *recipient* (`to_user_id = caller`), set `delivered_at = now()` on the rows
+   being returned (only where still NULL). The sender learns about it on their
+   next poll.
+3. **Read**: `POST /api/chat/read` already sets `read_at` — no change.
+4. **Propagation**: broaden the v3.2 `deleted_after` parameter to mean
+   "changed after": in addition to tombstones, also return the caller's *own
+   sent* messages whose `delivered_at` or `read_at` changed after the
+   timestamp:
+
+```sql
+SELECT * FROM chat_messages
+WHERE <conversation scope>
+  AND (id > :since
+       OR (deleted = 1 AND deleted_at > :deleted_after)
+       OR (from_user_id = :caller AND (delivered_at > :deleted_after OR read_at > :deleted_after)))
+ORDER BY id ASC LIMIT 200
+```
+
+Groups: skip per-member tracking (leave both fields null on group messages) —
+the app then shows only the single "sent" tick there, which is the intended v1
+behavior.
+
+Implementation notes: `delivered_at` is a `DATETIME` for the same reason as
+`deleted_at`. Stamping only ever fills a NULL, so a re-fetch does not move the
+timestamp, and it happens only for rows addressed *to* the caller — a sender
+re-reading their own thread delivers nothing to themselves. The tick updates
+ride the `deleted_after` window, so a poll without that parameter still returns
+new messages but no tick changes; the app sends it on every poll.
+
+Note the stamps are only as exact as the database session's timezone (the
+driver reads a DATETIME back through it). The tick state depends on presence,
+not on the value, so this only affects a timestamp nobody displays.
+
 ## APNS environments (dev vs TestFlight/App Store)
 
 The APNS host must match the build that registered the device token, or Apple

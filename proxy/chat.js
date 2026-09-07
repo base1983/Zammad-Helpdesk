@@ -5,9 +5,9 @@
 // of sqlite, and the existing APNs provider from server.js. See PROXY_CHAT_API.md
 // in the iOS app repo for the client contract (ChatService.swift).
 //
-// Protocol level: v4 + v3.2 deletion — direct messages, groups, attachments and
-// per-device keys, plus message/conversation deletion that propagates to open
-// conversations within one poll (deleted_after). Bodies, group keys and attachment blobs are end-to-end encrypted by the
+// Protocol level: v4 + v3.3 — direct messages, groups, attachments and
+// per-device keys, plus message/conversation deletion and delivery/read ticks,
+// both of which reach open conversations within one poll (deleted_after). Bodies, group keys and attachment blobs are end-to-end encrypted by the
 // client; the proxy stores them verbatim and can never read them.
 //
 // v4 changes the key model from one key per *user* to one key per *device*, so
@@ -116,6 +116,7 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
                     attachment_mime VARCHAR(128) NULL,
                     deleted TINYINT(1) NOT NULL DEFAULT 0,
                     deleted_at DATETIME NULL,
+                    delivered_at DATETIME NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     read_at TIMESTAMP NULL,
                     INDEX idx_msg_pair (from_user_id, to_user_id, id),
@@ -133,6 +134,9 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
             // v3.2: when the tombstone was made, so clients can pick up deletions
             // of messages they already hold (their id is below `since`).
             await migrate(conn, 'ALTER TABLE chat_messages ADD COLUMN deleted_at DATETIME NULL', 'chat_messages.deleted_at');
+            // v3.3: when the recipient's device first fetched the message. Stays
+            // NULL on group messages — no per-member delivery tracking.
+            await migrate(conn, 'ALTER TABLE chat_messages ADD COLUMN delivered_at DATETIME NULL', 'chat_messages.delivered_at');
             // Group messages have no recipient — to_user_id must be nullable.
             // Only ALTER when it isn't already: MODIFY rebuilds the table, and
             // chat_messages is the one table that actually grows.
@@ -268,6 +272,11 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
         // v3.1: the sender deleted this one for everyone; body is empty and the
         // client renders a "Message deleted" tombstone in its place.
         deleted: !!m.deleted,
+        // v3.3: the sender's tick state — both null is one grey tick (sent),
+        // delivered_at is two grey, read_at is two blue. Group messages keep
+        // both null, so a group shows the single tick.
+        delivered_at: isoUTC(m.delivered_at),
+        read_at: isoUTC(m.read_at),
         // v4: the calling device's copy of the body key, and the public key to
         // unwrap it against. Null for group messages (the group key is used) and
         // for direct messages this device was not a recipient of.
@@ -483,6 +492,29 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
         await conn.query(`DELETE FROM chat_message_keys WHERE message_id IN (${placeholders})`, ids);
         await conn.query(`DELETE FROM chat_messages WHERE id IN (${placeholders})`, ids);
         await deleteOrphanedAttachments(conn, attachmentIds);
+    }
+
+    // --- Delivery helper -------------------------------------------------
+
+    // v3.3: fetching a direct message as its recipient is what marks it
+    // delivered. The sender finds out on their next poll, through the same
+    // "changed after" window that carries tombstones. Group messages are never
+    // stamped — there is no per-member delivery tracking.
+    async function stampDelivered(conn, messages, recipientId) {
+        const ids = messages
+            .filter((m) => m.delivered_at == null && m.group_id == null &&
+                           Number(m.to_user_id) === Number(recipientId))
+            .map((m) => Number(m.id));
+        if (!ids.length) return;
+        await conn.query(`
+            UPDATE chat_messages SET delivered_at = UTC_TIMESTAMP()
+            WHERE id IN (${ids.map(() => '?').join(',')}) AND delivered_at IS NULL
+        `, ids);
+        // Reflect it in this response too, rather than reporting null for rows
+        // we just stamped.
+        const now = new Date();
+        const stamped = new Set(ids);
+        for (const m of messages) if (stamped.has(Number(m.id))) m.delivered_at = now;
     }
 
     // --- Push helpers ----------------------------------------------------
@@ -821,11 +853,18 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
             // last poll, so an open conversation loses a deleted bubble within
             // one cycle instead of only on reopen. A fetch without `since`
             // starts at id 0 and therefore carries the tombstones anyway.
+            // v3.3 widens this from "deleted after" to "changed after": besides
+            // tombstones it also re-sends the caller's own messages whose
+            // delivery or read stamp moved, so their ticks update in place.
             const deletedAfter = toSqlUtc(req.query.deleted_after);
             const window = deletedAfter
-                ? '(m.id > ? OR (m.deleted = 1 AND m.deleted_at > ?))'
+                ? `(m.id > ?
+                    OR (m.deleted = 1 AND m.deleted_at > ?)
+                    OR (m.from_user_id = ? AND (m.delivered_at > ? OR m.read_at > ?)))`
                 : 'm.id > ?';
-            const windowArgs = deletedAfter ? [since, deletedAfter] : [since];
+            const windowArgs = deletedAfter
+                ? [since, deletedAfter, me.id, deletedAfter, deletedAfter]
+                : [since];
             conn = await pool.getConnection();
 
             let messages;
@@ -846,6 +885,7 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
                       AND ${window}
                     ORDER BY m.id ASC LIMIT 200
                 `, [me.deviceRowId, me.id, partnerId, partnerId, me.id, ...windowArgs]);
+                await stampDelivered(conn, messages, me.id);
             }
             res.json(messages.map(toMessageJson));
         } catch (err) {
