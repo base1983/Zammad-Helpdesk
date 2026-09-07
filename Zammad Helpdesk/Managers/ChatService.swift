@@ -53,6 +53,7 @@ struct ChatMessage: Codable, Identifiable, Hashable {
     var attachmentName: String?
     let attachmentMime: String?
     let createdAt: Date
+    var deleted: Bool?
 
     /// v4 direct messages: the public key of the device that sent this message,
     /// and this device's wrapped copy of the random body key. Both are nil for
@@ -68,7 +69,7 @@ struct ChatMessage: Codable, Identifiable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id, fromUserId, toUserId, groupId, fromUserName, body, ticketId, ticketNumber
-        case attachmentId, attachmentName, attachmentMime, createdAt
+        case attachmentId, attachmentName, attachmentMime, createdAt, deleted
         case senderPublicKey, wrappedKey
         case isEncrypted // persisted in the local history cache; stripped for wire payloads
     }
@@ -87,6 +88,7 @@ struct ChatMessage: Codable, Identifiable, Hashable {
         attachmentName = try container.decodeIfPresent(String.self, forKey: .attachmentName)
         attachmentMime = try container.decodeIfPresent(String.self, forKey: .attachmentMime)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
+        deleted = try container.decodeIfPresent(Bool.self, forKey: .deleted)
         senderPublicKey = try container.decodeIfPresent(String.self, forKey: .senderPublicKey)
         wrappedKey = try container.decodeIfPresent(String.self, forKey: .wrappedKey)
         isEncrypted = try container.decodeIfPresent(Bool.self, forKey: .isEncrypted) ?? false
@@ -357,6 +359,19 @@ final class ChatHistoryStore {
             try? data.write(to: fileURL(for: key), options: .atomic)
         }
         return merged
+    }
+
+    /// Removes a single message from the cached history (local delete).
+    func remove(id: Int, key: String) {
+        let remaining = load(key: key).filter { $0.id != id }
+        if let data = try? encoder.encode(remaining) {
+            try? data.write(to: fileURL(for: key), options: .atomic)
+        }
+    }
+
+    /// Deletes the entire cached history for a conversation.
+    func clear(key: String) {
+        try? FileManager.default.removeItem(at: fileURL(for: key))
     }
 
     private func prune(_ messages: [ChatMessage]) -> [ChatMessage] {
@@ -644,6 +659,12 @@ final class ChatService: ObservableObject {
         let request = try makeRequest(path: "messages", queryItems: query)
         var messages: [ChatMessage] = try await perform(request)
         for index in messages.indices {
+            if messages[index].deleted == true {
+                // Tombstone: the sender deleted this message for everyone.
+                messages[index].body = "chat_message_deleted".localized()
+                messages[index].isEncrypted = true
+                continue
+            }
             let raw = messages[index].body
             messages[index].isEncrypted = ChatCrypto.isEncrypted(raw)
             switch target {
@@ -758,6 +779,31 @@ final class ChatService: ObservableObject {
     /// Refreshes the unread total for the toolbar badge.
     func refreshUnreadCount() async {
         _ = try? await fetchConversations()
+    }
+
+    // MARK: Deletion
+
+    /// Deletes one of our own messages for everyone (the proxy tombstones it;
+    /// only the sender is allowed to do this).
+    func deleteMessage(id: Int) async throws {
+        struct OkResponse: Decodable { let ok: Bool }
+        let request = try makeRequest(path: "messages/\(id)", method: "DELETE")
+        let _: OkResponse = try await perform(request)
+    }
+
+    /// Deletes an entire conversation on the proxy. For a direct chat this
+    /// removes all messages for both participants; for a group the creator
+    /// deletes the group for everyone, while a regular member leaves it.
+    func deleteConversation(_ target: ChatTarget) async throws {
+        struct OkResponse: Decodable { let ok: Bool }
+        let body: [String: Any]
+        switch target {
+        case .direct(let partner): body = ["with_user_id": partner.id]
+        case .group(let group): body = ["group_id": group.id]
+        }
+        let request = try makeRequest(path: "conversations/delete", method: "POST", body: body)
+        let _: OkResponse = try await perform(request)
+        await refreshUnreadCount()
     }
 
     // MARK: Attachments

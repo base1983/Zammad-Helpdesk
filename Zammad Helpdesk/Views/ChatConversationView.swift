@@ -180,6 +180,44 @@ struct ChatConversationView: View {
             .font(.caption2)
         }
         .frame(maxWidth: .infinity, alignment: isMine ? .trailing : .leading)
+        .contextMenu {
+            if message.deleted != true {
+                if isMine {
+                    Button(role: .destructive) {
+                        deleteForEveryone(message)
+                    } label: {
+                        Label("chat_delete_message".localized(), systemImage: "trash")
+                    }
+                } else {
+                    Button(role: .destructive) {
+                        deleteForMe(message)
+                    } label: {
+                        Label("chat_delete_for_me".localized(), systemImage: "trash")
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Deletion
+
+    /// Deletes one of our own messages on the proxy (tombstoned for everyone).
+    private func deleteForEveryone(_ message: ChatMessage) {
+        Task {
+            do {
+                try await chatService.deleteMessage(id: message.id)
+                ChatHistoryStore.shared.remove(id: message.id, key: target.id)
+                messages.removeAll { $0.id == message.id }
+            } catch {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
+        }
+    }
+
+    /// Removes a received message from this device only.
+    private func deleteForMe(_ message: ChatMessage) {
+        ChatHistoryStore.shared.remove(id: message.id, key: target.id)
+        messages.removeAll { $0.id == message.id }
     }
 
     /// Bolds @mentions of conversation members (and ourselves) in the body.

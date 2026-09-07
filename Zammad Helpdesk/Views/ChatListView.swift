@@ -15,6 +15,8 @@ struct ChatListView: View {
     @State private var isShowingNoEngineersAlert = false
     @State private var isShowingNewGroup = false
     @State private var selectedTarget: ChatTarget?
+    @State private var conversationToDelete: ChatConversation?
+    @State private var isShowingDeleteConfirm = false
 
     var body: some View {
         Group {
@@ -127,9 +129,52 @@ struct ChatListView: View {
                 .padding(.vertical, 4)
             }
             .listRowBackground(Color.clear)
+            .swipeActions {
+                Button(role: .destructive) {
+                    conversationToDelete = conversation
+                    isShowingDeleteConfirm = true
+                } label: {
+                    Label(deleteLabel(for: conversation), systemImage: "trash")
+                }
+            }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .confirmationDialog(
+            conversationToDelete.map(deleteLabel(for:)) ?? "",
+            isPresented: $isShowingDeleteConfirm,
+            titleVisibility: .visible,
+            presenting: conversationToDelete
+        ) { conversation in
+            Button(deleteLabel(for: conversation), role: .destructive) {
+                delete(conversation)
+            }
+        } message: { conversation in
+            Text(isLeavingGroup(conversation) ? "chat_leave_group_confirm".localized() : "chat_delete_chat_confirm".localized())
+        }
+    }
+
+    /// A member (non-creator) leaves a group; everything else is a full delete.
+    private func isLeavingGroup(_ conversation: ChatConversation) -> Bool {
+        guard let group = conversation.group else { return false }
+        return group.creatorId != chatService.myChatUserId
+    }
+
+    private func deleteLabel(for conversation: ChatConversation) -> String {
+        isLeavingGroup(conversation) ? "chat_leave_group".localized() : "chat_delete_chat".localized()
+    }
+
+    private func delete(_ conversation: ChatConversation) {
+        guard let target = resolvedTarget(conversation) else { return }
+        Task {
+            do {
+                try await chatService.deleteConversation(target)
+                ChatHistoryStore.shared.clear(key: target.id)
+                await load()
+            } catch {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
+        }
     }
 
     /// Prefers the full group record (with members, for @mention suggestions)
