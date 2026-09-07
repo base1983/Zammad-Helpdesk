@@ -190,6 +190,9 @@
 "chat_delete_chat_confirm" = "This deletes the conversation for all participants.";
 "chat_leave_group" = "Leave group";
 "chat_leave_group_confirm" = "You will no longer receive messages from this group.";
+"chat_status_sent" = "Sent";
+"chat_status_delivered" = "Delivered";
+"chat_status_read" = "Read";
 "chat_encryption_unavailable" = "This colleague can't receive encrypted messages yet — ask them to update the app. Message not sent.";
 "chat_encrypted_label" = "Encrypted";
 "chat_unencrypted_label" = "Not encrypted";

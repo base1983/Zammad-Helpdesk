@@ -14,6 +14,7 @@ struct TicketDetailView: View {
     @State private var isShowingEditSheet = false
     @State private var isShowingReplySheet = false
     @State private var isShowingTimeSheet = false
+    @State private var isShowingHandoffSheet = false
     @State private var isShowingCustomerSearch = false
     @State private var optionalCustomerId: Int? = nil
     @State private var showPendingTimePicker = false
@@ -62,6 +63,7 @@ struct TicketDetailView: View {
                     if viewModel.isTimeAccountingEnabled {
                         Button(action: { isShowingTimeSheet = true }) { Image(systemName: "clock") }
                     }
+                    Button(action: { isShowingHandoffSheet = true }) { Image(systemName: "person.2") }
                     Button(action: { isShowingEditSheet = true }) { Image(systemName: "square.and.pencil") }
                     Button(action: { isShowingReplySheet = true }) { Image(systemName: "arrowshape.turn.up.left") }
                 }
@@ -83,6 +85,14 @@ struct TicketDetailView: View {
         .sheet(isPresented: $isShowingTimeSheet) {
             if let ticket = ticket {
                 TimeAccountingEditView(viewModel: viewModel, ticket: ticket)
+            }
+        }
+        .sheet(isPresented: $isShowingHandoffSheet, onDismiss: {
+            // Reload so the handoff note (and new owner) show up in the thread.
+            Task { await loadDetails() }
+        }) {
+            if let ticketBinding = Binding($ticket) {
+                TicketHandoffView(viewModel: viewModel, ticket: ticketBinding)
             }
         }
         .sheet(isPresented: $isShowingCustomerSearch, onDismiss: {

@@ -1,0 +1,9 @@
+{
+  "id" : "7ce3eecc-8c5b-4cda-b0ec-e145c79fb1d4",
+  "targets" : [
+    {
+      "id" : "38E43916-6C85-4976-B083-0D8827653F22",
+      "name" : "Zammad Helpdesk"
+    }
+  ]
+}

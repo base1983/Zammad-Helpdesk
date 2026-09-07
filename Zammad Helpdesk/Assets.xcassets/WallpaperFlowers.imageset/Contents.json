@@ -1,19 +1,8 @@
 {
   "images" : [
     {
-      "filename" : "micheile-henderson-8INpk0UxPGE-unsplash.jpg",
-      "idiom" : "universal",
-      "scale" : "1x"
-    },
-    {
-      "filename" : "micheile-henderson-8INpk0UxPGE-unsplash 1.jpg",
-      "idiom" : "universal",
-      "scale" : "2x"
-    },
-    {
-      "filename" : "micheile-henderson-8INpk0UxPGE-unsplash 2.jpg",
-      "idiom" : "universal",
-      "scale" : "3x"
+      "filename" : "WallpaperFlowers.jpg",
+      "idiom" : "universal"
     }
   ],
   "info" : {

@@ -167,6 +167,9 @@
 "chat_delete_chat_confirm" = "Dies löscht die Unterhaltung für alle Teilnehmer.";
 "chat_leave_group" = "Gruppe verlassen";
 "chat_leave_group_confirm" = "Du erhältst keine Nachrichten mehr aus dieser Gruppe.";
+"chat_status_sent" = "Gesendet";
+"chat_status_delivered" = "Zugestellt";
+"chat_status_read" = "Gelesen";
 "chat_encryption_unavailable" = "Diese Person kann noch keine verschlüsselten Nachrichten empfangen — bitte die App aktualisieren lassen. Nachricht nicht gesendet.";
 "chat_encrypted_label" = "Verschlüsselt";
 "chat_unencrypted_label" = "Nicht verschlüsselt";

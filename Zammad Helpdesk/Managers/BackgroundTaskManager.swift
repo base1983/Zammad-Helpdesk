@@ -32,13 +32,16 @@ class BackgroundNotificationManager {
 
 class BackgroundTaskManager {
     static let shared = BackgroundTaskManager()
-    private let backgroundTaskIdentifier = "com.zammad.apprefresh"
+    // Must be listed in BGTaskSchedulerPermittedIdentifiers in the Info.plist.
+    private let backgroundTaskIdentifier = "com.worldict.helpdesk.refresh"
     private let notificationManager = BackgroundNotificationManager()
 
     func registerBackgroundTask() {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: backgroundTaskIdentifier, using: nil) { task in
             if let refreshTask = task as? BGAppRefreshTask {
                 self.handleAppRefresh(task: refreshTask)
+            } else {
+                task.setTaskCompleted(success: false)
             }
         }
         print("Background task registered.")
@@ -59,24 +62,22 @@ class BackgroundTaskManager {
     private func handleAppRefresh(task: BGAppRefreshTask) {
         scheduleAppRefresh()
 
-        let operationQueue = OperationQueue()
-        operationQueue.maxConcurrentOperationCount = 1
-
-        let operation = BlockOperation {
-            Task {
-                await self.performBackgroundFetch(task: task)
+        let work = Task {
+            let success = await self.performBackgroundFetch()
+            // If we expired, the expiration handler already completed the task.
+            if !Task.isCancelled {
+                task.setTaskCompleted(success: success)
             }
         }
-        
-        task.expirationHandler = {
-            operation.cancel()
-            print("Background task expired.")
-        }
 
-        operationQueue.addOperation(operation)
+        task.expirationHandler = {
+            print("Background task expired.")
+            work.cancel()
+            task.setTaskCompleted(success: false)
+        }
     }
 
-    private func performBackgroundFetch(task: BGAppRefreshTask) async {
+    private func performBackgroundFetch() async -> Bool {
         let lastFetchDate = SettingsManager.shared.loadLastFetchDate()
         print("Background task: Last fetch date was \(lastFetchDate.ISO8601Format())")
 
@@ -86,10 +87,7 @@ class BackgroundTaskManager {
                 .filter { !["closed", "gesloten"].contains($0.name.lowercased()) }
                 .map { String($0.id) }
 
-            guard !openStateIDs.isEmpty else {
-                task.setTaskCompleted(success: true)
-                return
-            }
+            guard !openStateIDs.isEmpty else { return true }
 
             let openStatesQuery = "state_id:(\(openStateIDs.joined(separator: " OR ")))"
             let tickets = try await ZammadAPIService.shared.searchTickets(query: openStatesQuery)
@@ -119,12 +117,12 @@ class BackgroundTaskManager {
                 }
             }
 
-            task.setTaskCompleted(success: true)
             print("Background task finished successfully.")
+            return true
 
         } catch {
             print("Background task failed: \(error.localizedDescription)")
-            task.setTaskCompleted(success: false)
+            return false
         }
     }
 }

@@ -168,6 +168,9 @@
 "chat_delete_chat_confirm" = "Dit verwijdert het gesprek voor alle deelnemers.";
 "chat_leave_group" = "Groep verlaten";
 "chat_leave_group_confirm" = "Je ontvangt geen berichten meer uit deze groep.";
+"chat_status_sent" = "Verzonden";
+"chat_status_delivered" = "Afgeleverd";
+"chat_status_read" = "Gelezen";
 "chat_encryption_unavailable" = "Deze collega kan nog geen versleutelde berichten ontvangen — vraag ze de app bij te werken. Bericht niet verzonden.";
 "chat_encrypted_label" = "Versleuteld";
 "chat_unencrypted_label" = "Niet versleuteld";

@@ -90,3 +90,14 @@ private struct BackgroundOptionCell: View {
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }
+
+#Preview {
+    NavigationStack {
+        BackgroundPickerView(
+            title: "Dark mode background",
+            wallpapers: BackgroundOption.darkWallpapers,
+            colors: BackgroundOption.darkColors,
+            selection: .constant(BackgroundOption.pebbles.rawValue)
+        )
+    }
+}

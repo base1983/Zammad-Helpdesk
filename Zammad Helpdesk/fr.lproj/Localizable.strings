@@ -169,6 +169,9 @@
 "chat_delete_chat_confirm" = "Cela supprime la conversation pour tous les participants.";
 "chat_leave_group" = "Quitter le groupe";
 "chat_leave_group_confirm" = "Vous ne recevrez plus les messages de ce groupe.";
+"chat_status_sent" = "Envoyé";
+"chat_status_delivered" = "Distribué";
+"chat_status_read" = "Lu";
 "chat_encryption_unavailable" = "Ce contact ne peut pas encore recevoir de messages chiffrés — demandez-lui de mettre à jour l'application. Message non envoyé.";
 "chat_encrypted_label" = "Chiffré";
 "chat_unencrypted_label" = "Non chiffré";

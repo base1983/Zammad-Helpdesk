@@ -4,6 +4,9 @@ struct ContentView: View {
     private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
     @AppStorage("is_setup_complete", store: Self.groupDefaults) private var isSetupComplete: Bool = false
     @AppStorage("color_scheme_option", store: Self.groupDefaults) private var colorSchemeOption: String = SettingsManager.shared.loadTheme().rawValue
+    @AppStorage("background_light_option", store: Self.groupDefaults) private var lightBackgroundOption: String = BackgroundOption.flowers.rawValue
+    @AppStorage("background_dark_option", store: Self.groupDefaults) private var darkBackgroundOption: String = BackgroundOption.pebbles.rawValue
+    @Environment(\.colorScheme) private var systemColorScheme
     
     @State private var showAnimation = true
     
@@ -18,13 +21,18 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            // 1. The Global Background Image
+            // 1. The Global Background (wallpaper image or solid color)
             GeometryReader { geo in
-                Image("Background")
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .clipped()
+                switch backgroundOption.style {
+                case .image(let name):
+                    Image(name)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                case .color(let color):
+                    color
+                }
             }
             .ignoresSafeArea()
 
@@ -154,6 +162,17 @@ struct ContentView: View {
         }
     }
     
+    /// Resolves the background for the effective color scheme: the in-app theme
+    /// override if one is set, otherwise the system appearance.
+    private var backgroundOption: BackgroundOption {
+        let effectiveScheme = getPreferredColorScheme() ?? systemColorScheme
+        if effectiveScheme == .dark {
+            return BackgroundOption(rawValue: darkBackgroundOption) ?? .pebbles
+        } else {
+            return BackgroundOption(rawValue: lightBackgroundOption) ?? .flowers
+        }
+    }
+
     private func getPreferredColorScheme() -> ColorScheme? {
         switch ColorSchemeOption(rawValue: colorSchemeOption) {
         case .light: return .light
