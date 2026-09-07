@@ -101,7 +101,7 @@ Response `200`:
 ### GET /api/chat/messages?with=13&since=341
 Messages between the caller and user `with`, ascending by id. `since`
 (optional) returns only messages with `id > since` — the app polls with this
-every 5 seconds while a conversation is open. Cap at 200 messages per response.
+every 60 seconds while a conversation is open. Cap at 200 messages per response.
 
 Response `200`: array of message objects (same shape as `last_message` above).
 `created_at` must be ISO 8601 UTC.
@@ -640,9 +640,38 @@ in both the direct and the group counter): a badge that opens onto "Message
 deleted" is noise. The tombstone itself still comes back from `/messages`, so
 the conversation shows what happened.
 
-Propagation note: clients poll with `since=<last id>`, so an already-fetched
-message disappears from other devices when they next reload the conversation
-(fresh open), not mid-poll. Acceptable for v3.1.
+**Live propagation (v3.2, required):** add a `deleted_at` timestamp column,
+set when tombstoning. `GET /api/chat/messages` accepts an optional
+`deleted_after=<ISO 8601>` parameter; the response then contains, *in addition
+to* the regular `id > since` messages, all tombstoned messages in the
+conversation with `deleted_at > deleted_after` (regardless of id):
+
+```sql
+SELECT * FROM chat_messages
+WHERE <conversation scope>
+  AND (id > :since OR (deleted = 1 AND deleted_at > :deleted_after))
+ORDER BY id ASC LIMIT 200
+```
+
+The app polls every 60 seconds with `deleted_after=<time of previous poll>` and
+replaces the original bubble with the tombstone by id — deletions disappear
+from open conversations within one poll cycle. Fetches *without* `since`
+(fresh conversation open) must include tombstones too, so reopened threads and
+local caches converge.
+
+Implementation notes: `deleted_at` is a `DATETIME`, not a `TIMESTAMP` — a
+TIMESTAMP column is converted between the session timezone and UTC, which would
+make the comparison against a client-supplied UTC instant depend on the
+server's timezone setting. An unparseable `deleted_after` is ignored (the
+request behaves as if it were absent) rather than answered with a 400, and it
+grants no extra access: group membership is still checked first.
+
+Caveat worth knowing: `deleted_after` compares the *device's* clock against the
+server's. A device whose clock runs ahead can skip a tombstone permanently —
+until the conversation is reopened, which fetches without `since` and therefore
+converges. If that turns out to matter in practice, widening the window
+server-side (subtracting a few minutes from `deleted_after`) costs almost
+nothing, since a tombstone is a handful of bytes and the client replaces by id.
 
 ### POST /api/chat/conversations/delete
 Body: `{ "with_user_id": 13 }` **or** `{ "group_id": 3 }`. Response `{ "ok": true }`.

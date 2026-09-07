@@ -5,8 +5,9 @@
 // of sqlite, and the existing APNs provider from server.js. See PROXY_CHAT_API.md
 // in the iOS app repo for the client contract (ChatService.swift).
 //
-// Protocol level: v4 + v3.1 deletion — direct messages, groups, attachments and
-// per-device keys, plus message/conversation deletion. Bodies, group keys and attachment blobs are end-to-end encrypted by the
+// Protocol level: v4 + v3.2 deletion — direct messages, groups, attachments and
+// per-device keys, plus message/conversation deletion that propagates to open
+// conversations within one poll (deleted_after). Bodies, group keys and attachment blobs are end-to-end encrypted by the
 // client; the proxy stores them verbatim and can never read them.
 //
 // v4 changes the key model from one key per *user* to one key per *device*, so
@@ -114,6 +115,7 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
                     attachment_name VARCHAR(255) NULL,
                     attachment_mime VARCHAR(128) NULL,
                     deleted TINYINT(1) NOT NULL DEFAULT 0,
+                    deleted_at DATETIME NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     read_at TIMESTAMP NULL,
                     INDEX idx_msg_pair (from_user_id, to_user_id, id),
@@ -128,6 +130,9 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
             await migrate(conn, 'ALTER TABLE chat_messages ADD INDEX idx_msg_group (group_id, id)', 'chat_messages idx_msg_group');
             // v3.1: tombstone flag for messages the sender deleted for everyone.
             await migrate(conn, 'ALTER TABLE chat_messages ADD COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0', 'chat_messages.deleted');
+            // v3.2: when the tombstone was made, so clients can pick up deletions
+            // of messages they already hold (their id is below `since`).
+            await migrate(conn, 'ALTER TABLE chat_messages ADD COLUMN deleted_at DATETIME NULL', 'chat_messages.deleted_at');
             // Group messages have no recipient — to_user_id must be nullable.
             // Only ALTER when it isn't already: MODIFY rebuilds the table, and
             // chat_messages is the one table that actually grows.
@@ -221,6 +226,15 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
     }
 
     const num = (v) => (v != null ? Number(v) : null);
+
+    // '2026-09-07T12:43:21Z' -> '2026-09-07 12:43:21' (UTC), or null when the
+    // client sent something unparseable — then the caller just omits the filter.
+    function toSqlUtc(value) {
+        if (!value) return null;
+        const d = new Date(String(value));
+        if (Number.isNaN(d.getTime())) return null;
+        return d.toISOString().slice(0, 19).replace('T', ' ');
+    }
 
     const toDeviceJson = (d) => ({
         id: Number(d.id),
@@ -802,6 +816,16 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
                 return res.status(400).json({ error: 'with or group is required.' });
             }
             const since = parseInt(req.query.since, 10) || 0;
+            // v3.2: with deleted_after, the window also picks up messages the
+            // caller already has (id <= since) that were tombstoned since their
+            // last poll, so an open conversation loses a deleted bubble within
+            // one cycle instead of only on reopen. A fetch without `since`
+            // starts at id 0 and therefore carries the tombstones anyway.
+            const deletedAfter = toSqlUtc(req.query.deleted_after);
+            const window = deletedAfter
+                ? '(m.id > ? OR (m.deleted = 1 AND m.deleted_at > ?))'
+                : 'm.id > ?';
+            const windowArgs = deletedAfter ? [since, deletedAfter] : [since];
             conn = await pool.getConnection();
 
             let messages;
@@ -811,17 +835,17 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
                 }
                 messages = await conn.query(`
                     ${MESSAGE_SELECT}
-                    WHERE m.group_id = ? AND m.id > ?
+                    WHERE m.group_id = ? AND ${window}
                     ORDER BY m.id ASC LIMIT 200
-                `, [me.deviceRowId, groupId, since]);
+                `, [me.deviceRowId, groupId, ...windowArgs]);
             } else {
                 messages = await conn.query(`
                     ${MESSAGE_SELECT}
                     WHERE m.group_id IS NULL
                       AND ((m.from_user_id = ? AND m.to_user_id = ?) OR (m.from_user_id = ? AND m.to_user_id = ?))
-                      AND m.id > ?
+                      AND ${window}
                     ORDER BY m.id ASC LIMIT 200
-                `, [me.deviceRowId, me.id, partnerId, partnerId, me.id, since]);
+                `, [me.deviceRowId, me.id, partnerId, partnerId, me.id, ...windowArgs]);
             }
             res.json(messages.map(toMessageJson));
         } catch (err) {
@@ -1040,7 +1064,8 @@ module.exports = function createChatRouter({ pool, sendPush, lookupDeviceToken }
             try {
                 await conn.query(`
                     UPDATE chat_messages
-                    SET body = '', deleted = 1, ticket_id = NULL, ticket_number = NULL,
+                    SET body = '', deleted = 1, deleted_at = UTC_TIMESTAMP(),
+                        ticket_id = NULL, ticket_number = NULL,
                         attachment_id = NULL, attachment_name = NULL, attachment_mime = NULL,
                         sender_public_key = NULL
                     WHERE id = ? AND from_user_id = ?
