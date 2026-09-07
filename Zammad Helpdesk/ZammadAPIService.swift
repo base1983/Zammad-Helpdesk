@@ -490,6 +490,35 @@ class ZammadAPIService {
             }
         }
 
+        // MARK: - Mentions
+        /// Subscribes a user to a ticket via Zammad's mentions API so they get
+        /// notified about it. Used by the handoff flow.
+        func createMention(ticketId: Int, userId: Int) async throws {
+            var request = try createRequest(for: "mentions", method: "POST")
+            let body: [String: Any] = [
+                "mentionable_type": "Ticket",
+                "mentionable_id": ticketId,
+                "user_id": userId
+            ]
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+            guard (200...299).contains(httpResponse.statusCode) else {
+                throw APIError.serverError(statusCode: httpResponse.statusCode, message: String(data: data, encoding: .utf8))
+            }
+        }
+
+        /// Best effort: older Zammad versions or restricted permissions may not
+        /// allow creating mentions for other users. The handoff still works via
+        /// the assignment notification, so failures here are non-fatal.
+        func createMentionGracefully(ticketId: Int, userId: Int) async {
+            do {
+                try await createMention(ticketId: ticketId, userId: userId)
+            } catch {
+                print("Mention creation failed (non-fatal): \(error)")
+            }
+        }
+
         // MARK: - Attachments
         func downloadAttachment(ticketId: Int, articleId: Int, attachment: Attachment) async throws -> URL {
             let endpoint = "ticket_attachment/\(ticketId)/\(articleId)/\(attachment.id)"

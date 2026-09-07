@@ -84,18 +84,32 @@ struct TicketHandoffView: View {
 
         Task {
             do {
-                let agentName = viewModel.userName(for: agentID)
-                let senderName = viewModel.currentUser?.fullname ?? ""
+                // 1. Prefer a direct chat message (with ticket reference) via the
+                //    proxy. Falls back to an internal note + mention when the
+                //    colleague isn't registered for chat.
+                var sentViaChat = false
+                if let currentUser = viewModel.currentUser {
+                    do {
+                        try await ChatService.shared.register(currentUser: currentUser)
+                        let engineers = try await ChatService.shared.fetchEngineers()
+                        if let partner = engineers.first(where: { $0.zammadUserId == agentID }) {
+                            try await ChatService.shared.send(to: partner, body: message, ticket: ticket)
+                            sentViaChat = true
+                        }
+                    } catch {
+                        print("Chat handoff unavailable, falling back to internal note: \(error)")
+                    }
+                }
 
-                // 1. The chat message becomes an internal note on the ticket,
-                //    visible to agents only.
-                let noteBody = "@\(agentName)\n\(message)\n\n— \(senderName)"
-                try await viewModel.addInternalNote(for: ticket, with: noteBody)
+                if !sentViaChat {
+                    let agentName = viewModel.userName(for: agentID)
+                    let senderName = viewModel.currentUser?.fullname ?? ""
+                    let noteBody = "@\(agentName)\n\(message)\n\n— \(senderName)"
+                    try await viewModel.addInternalNote(for: ticket, with: noteBody)
+                    await ZammadAPIService.shared.createMentionGracefully(ticketId: ticket.id, userId: agentID)
+                }
 
-                // 2. Subscribe the colleague to the ticket (best effort).
-                await ZammadAPIService.shared.createMentionGracefully(ticketId: ticket.id, userId: agentID)
-
-                // 3. Assign, which also triggers Zammad's "assigned to you" notification.
+                // 2. Assign, which also triggers Zammad's "assigned to you" notification.
                 if assignImmediately {
                     var updatedTicket = ticket
                     updatedTicket.owner_id = agentID
