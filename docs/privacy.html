@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helpdesk for Zammad — Privacy Policy</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1b1b1f; --muted: #5d5d66; --bg: #fafafa; --card: #fff; --line: #e3e3e8; --accent: #2a6df4; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #ececf1; --muted: #a2a2ad; --bg: #131316; --card: #1c1c21; --line: #2c2c33; --accent: #6b9cff; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+  h1 { font-size: 1.9rem; margin: 0 0 .25rem; } h2 { font-size: 1.2rem; margin: 2rem 0 .6rem; }
+  p.lead { color: var(--muted); margin-top: 0; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.1rem 1.3rem; margin: 1rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .95rem; } th, td { text-align: left; vertical-align: top; padding: .45rem .5rem; border-bottom: 1px solid var(--line); } th { color: var(--muted); font-weight: 600; }
+  code { font: .92em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--line); padding: .1em .35em; border-radius: 4px; }
+  a { color: var(--accent); } ul { padding-left: 1.3rem; } li { margin: .3rem 0; } .note { color: var(--muted); font-size: .93rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Privacy Policy</h1>
+  <p class="lead">Helpdesk for Zammad (iOS and Apple Watch) · Last updated 8 September 2026 · <a href="index.html">Back to support</a></p>
+
+  <section>
+    <h2>The short version</h2>
+    <ul>
+      <li>Your tickets, customers and articles go <strong>directly between your phone and your own Zammad server</strong>. We never see them.</li>
+      <li>Two optional features use a relay server we operate (<code>zammadproxy.world-ict.nl</code>): push notifications and colleague chat. This page describes exactly what that relay stores.</li>
+      <li>The free version shows a banner ad from Google AdMob. Premium removes it. We do not track you across apps or sites.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Who we are</h2>
+    <p>The app is developed and the relay is operated by World ICT, Netherlands. Contact: <a href="mailto:b.jonkers@world-ict.eu">b.jonkers@world-ict.eu</a>. Helpdesk for Zammad is an independent client and is not affiliated with Zammad GmbH.</p>
+  </section>
+
+  <section>
+    <h2>Data that stays on your device</h2>
+    <p>Your Zammad server URL and API token are stored in the iOS Keychain on the device. Which tickets you have viewed, your theme choices and similar preferences are stored in the app's own storage. Chat history is cached on the device in decrypted form, protected by iOS file protection, and pruned to the retention window you set in Settings (90 days by default; 0 keeps everything). Deleting the app deletes all of this.</p>
+  </section>
+
+  <section>
+    <h2>Data your Zammad server receives</h2>
+    <p>Everything you do with tickets is a request from your device to your own Zammad server, using your own credentials, over HTTPS. What your server logs or retains is governed by your organisation, not by us.</p>
+  </section>
+
+  <section>
+    <h2>Data the relay server receives</h2>
+    <p>Only if you enable push notifications or use the chat. The relay runs on a server in the European Union that we operate ourselves.</p>
+    <table>
+      <tr><th>Data</th><th>Why</th><th>How long</th></tr>
+      <tr><td>Apple push (APNs) device token</td><td>To deliver notifications to your phone</td><td>Until you disable notifications in the app, which unregisters the device</td></tr>
+      <tr><td>A random identifier for your registration</td><td>To route webhook calls from your Zammad server to your device</td><td>Same as above</td></tr>
+      <tr><td>Your Zammad server URL and API token</td><td>Stored with the registration so the relay can be told which server a webhook came from. <strong>This is a credential held on our server.</strong> Revoke it in Zammad at any time (Profile → Token Access) to make the stored copy useless.</td><td>Same as above</td></tr>
+      <tr><td>Ticket number and title, and a short excerpt of the latest article, as sent by <em>your</em> Zammad server in the webhook</td><td>To build the notification text</td><td>Not stored; forwarded to Apple and discarded</td></tr>
+      <tr><td>Your display name, e-mail address and Zammad user ID</td><td>So colleagues on the same server can find you in the chat directory</td><td>Until you ask us to remove them (see below)</td></tr>
+      <tr><td>A public encryption key per device</td><td>So colleagues can encrypt messages that only your device can read</td><td>Same as above</td></tr>
+      <tr><td>Chat messages and attachments — <strong>ciphertext only</strong></td><td>To deliver them to the recipient's devices</td><td>Deleted after 90 days, or immediately when you delete the message or conversation</td></tr>
+      <tr><td>Chat metadata: who wrote to whom and when, group names and membership, attachment file names and types, referenced ticket numbers</td><td>Needed to route and list conversations</td><td>Same as the messages they belong to</td></tr>
+    </table>
+    <p>Chat messages are encrypted end-to-end on your device (Curve25519 key agreement, ChaCha20-Poly1305) before they are sent. The relay cannot read them, and neither can we. Push notifications for chat never contain message text.</p>
+  </section>
+
+  <section>
+    <h2>Advertising</h2>
+    <p>The free version shows one banner ad from Google AdMob on the ticket list. The Google Mobile Ads SDK may collect your device's advertising identifier (only if you have allowed tracking in iOS, which the app never asks for), IP address, coarse location derived from it, and interaction with the ad. Google's handling of this data is described in <a href="https://policies.google.com/technologies/ads">Google's advertising policies</a>. Where the law requires it (for example in the EEA and the UK), the app asks for your consent before any ad is requested, and you can change your choice at any time in Settings → <em>Ad privacy options</em>. Premium removes the banner and the SDK is not used for anything else.</p>
+  </section>
+
+  <section>
+    <h2>Purchases</h2>
+    <p>Premium is sold through Apple's In-App Purchase. Apple processes the payment; we receive no name, address or payment details. The app checks your entitlement locally with StoreKit.</p>
+  </section>
+
+  <section>
+    <h2>What we do not do</h2>
+    <ul>
+      <li>No analytics or crash-reporting SDKs beyond what Apple provides with your consent.</li>
+      <li>No tracking across other apps or websites, and no App Tracking Transparency prompt, because there is nothing to ask for.</li>
+      <li>No selling or sharing of personal data with third parties, other than Google for ads as described above and Apple for delivering push notifications.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Your rights</h2>
+    <p>Under the GDPR you can ask what we hold about you, have it corrected or deleted, or object to its processing. Disabling notifications in the app deletes your push registration on the relay immediately. To remove your chat directory entry and any remaining ciphertext, e-mail <a href="mailto:b.jonkers@world-ict.eu">b.jonkers@world-ict.eu</a> from the address you registered with; we act within 30 days. You may also complain to the Dutch Data Protection Authority (Autoriteit Persoonsgegevens).</p>
+  </section>
+
+  <section>
+    <h2>Children</h2>
+    <p>The app is a work tool for helpdesk agents and is not directed at children under 16. We do not knowingly collect data from them.</p>
+  </section>
+
+  <section>
+    <h2>Changes</h2>
+    <p>If this policy changes, the date at the top changes with it, and material changes are announced in the app's release notes.</p>
+  </section>
+</main>
+</body>
+</html>

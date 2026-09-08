@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helpdesk for Zammad — Support</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1b1b1f; --muted: #5d5d66; --bg: #fafafa; --card: #fff; --line: #e3e3e8; --accent: #2a6df4; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #ececf1; --muted: #a2a2ad; --bg: #131316; --card: #1c1c21; --line: #2c2c33; --accent: #6b9cff; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+  h1 { font-size: 1.9rem; margin: 0 0 .25rem; } h2 { font-size: 1.2rem; margin: 2.2rem 0 .6rem; } h3 { font-size: 1rem; margin: 1.4rem 0 .3rem; }
+  p.lead { color: var(--muted); margin-top: 0; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.1rem 1.3rem; margin: 1rem 0; }
+  code { font: .92em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--line); padding: .1em .35em; border-radius: 4px; }
+  a { color: var(--accent); }
+  ol, ul { padding-left: 1.3rem; } li { margin: .3rem 0; }
+  .note { color: var(--muted); font-size: .93rem; }
+  nav a { margin-right: 1rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Helpdesk for Zammad</h1>
+  <p class="lead">Support for the iOS and Apple Watch app. An independent, unofficial client for <a href="https://zammad.org">Zammad</a>, not affiliated with Zammad GmbH.</p>
+  <nav><a href="#setup">Setup</a><a href="#notifications">Notifications</a><a href="#chat">Chat</a><a href="#premium">Premium</a><a href="#contact">Contact</a><a href="privacy.html">Privacy policy</a></nav>
+
+  <section id="setup">
+    <h2>Setting up</h2>
+    <p>The app talks directly to your own Zammad server. You need the server URL and either your login or a personal API token.</p>
+    <ol>
+      <li>Open the app. The setup wizard asks for your <strong>server URL</strong>, for example <code>https://helpdesk.example.com</code>.</li>
+      <li>Choose <strong>API token</strong>. In Zammad's web interface, go to your avatar → <em>Profile</em> → <em>Token Access</em> → <em>Create</em>, tick <code>ticket.agent</code>, and copy the token.</li>
+      <li>Paste the token and tap <strong>Test Connection</strong>. When it succeeds, the ticket queue loads.</li>
+    </ol>
+    <h3>“Connection failed”</h3>
+    <ul>
+      <li>The URL must include <code>https://</code> and must be reachable from your phone's network. If the server is only reachable inside your office, connect to its VPN first.</li>
+      <li>The token needs at least the <code>ticket.agent</code> permission, and token access must be enabled by your Zammad admin (<em>Settings → System → API</em>).</li>
+      <li>Self-signed certificates are not accepted. Use a certificate from a public authority, such as Let's Encrypt.</li>
+    </ul>
+  </section>
+
+  <section id="notifications">
+    <h2>Push notifications</h2>
+    <p>Zammad has no built-in support for Apple push notifications, so the app uses a small relay run by us. When you enable notifications, the app registers your device with the relay and tells you how to add a webhook trigger in Zammad. Zammad then calls that webhook for ticket updates, and the relay forwards a push to your phone.</p>
+    <ul>
+      <li>Notifications require the Premium unlock (see below) and a working webhook trigger in Zammad — the app shows the exact URL to paste.</li>
+      <li>Nothing about a ticket is stored on the relay; it only keeps your device token and the identifier it needs to route the push. See the <a href="privacy.html">privacy policy</a>.</li>
+      <li>No notifications arriving? Check that the trigger in Zammad is active and that the app has notification permission in iOS Settings.</li>
+    </ul>
+  </section>
+
+  <section id="chat">
+    <h2>Colleague chat</h2>
+    <p>Agents on the same Zammad server can message each other and hand tickets over. Messages are end-to-end encrypted on the device with a key that never leaves it; the relay only ever stores ciphertext.</p>
+    <ul>
+      <li>A colleague appears in your contact list once they have opened the app on the same server.</li>
+      <li>Each device has its own key. A message sent before you installed the app on a new device cannot be read there — that is by design, not a fault.</li>
+      <li>Deleting a message removes it for everyone; deleting a conversation removes it for both participants.</li>
+    </ul>
+  </section>
+
+  <section id="premium">
+    <h2>Premium</h2>
+    <p>The app is free with a banner ad. A one-time <strong>Lifetime Unlock</strong> (or a subscription) removes the ad and enables real-time push notifications and the app icon badge. Purchases are handled by Apple; use <em>Restore Purchases</em> in Settings after reinstalling or switching devices.</p>
+  </section>
+
+  <section id="contact">
+    <h2>Contact</h2>
+    <p>Questions, bug reports and feature requests: <a href="mailto:b.jonkers@world-ict.eu">b.jonkers@world-ict.eu</a>, or open an issue on <a href="https://github.com/base1983/Zammad-Helpdesk/issues">GitHub</a>. Please include your app version (Settings → About) and the Zammad version you connect to.</p>
+    <p class="note">Helpdesk for Zammad is developed by World ICT, Netherlands. Zammad is a trademark of Zammad GmbH; it is used here only to describe what this app connects to.</p>
+  </section>
+</main>
+</body>
+</html>
