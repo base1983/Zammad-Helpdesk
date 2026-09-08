@@ -20,7 +20,14 @@ struct TicketListContainerView: View {
     @FocusState private var isSearchFieldFocused: Bool
     
     var deepLinkManager = DeepLinkManager.shared
+    // Live banner unit. Debug builds keep Google's test unit: clicking your own
+    // live ads is an AdMob policy violation, and test ads are what Google tells
+    // you to develop against.
+    #if DEBUG
     private let adUnitID = "ca-app-pub-3940256099942544/2934735716"
+    #else
+    private let adUnitID = "ca-app-pub-7428603098298858/7003691655"
+    #endif
 
     init(viewModel: TicketViewModel, ticketToShow: Binding<Ticket?>, showDeepLinkedTicket: Binding<Bool>) {
         self.viewModel = viewModel
