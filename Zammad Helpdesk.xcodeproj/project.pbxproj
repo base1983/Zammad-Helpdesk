@@ -456,7 +456,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk/Zammad Helpdesk.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10010;
+				CURRENT_PROJECT_VERSION = 10011;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
@@ -495,7 +495,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk/Zammad Helpdesk.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10010;
+				CURRENT_PROJECT_VERSION = 10011;
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -532,7 +532,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk Watch App/Zammad Helpdesk Watch App.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 10011;
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -543,7 +543,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.World-ICT.Zammad-Helpdesk.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -567,7 +567,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk Watch App/Zammad Helpdesk Watch App.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 10011;
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -578,7 +578,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.World-ICT.Zammad-Helpdesk.watchkitapp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;

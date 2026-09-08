@@ -275,3 +275,4 @@
 "login_via_safari" = "Se connecter via Safari";
 "paste_token" = "Coller le jeton";
 "paste_token_explainer" = "Avez-vous créé un jeton via Safari dans votre profil Zammad ? Collez-le ci-dessous.";
+"ad_privacy_options" = "Options de confidentialité des annonces";

@@ -307,3 +307,4 @@
 "login_via_safari" = "Sign in with Safari";
 "paste_token" = "Paste token";
 "paste_token_explainer" = "Did you create a token via Safari in your Zammad profile? Paste it below.";
+"ad_privacy_options" = "Ad privacy options";

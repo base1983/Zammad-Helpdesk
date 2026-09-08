@@ -7,6 +7,7 @@ struct TicketListContainerView: View {
     @ObservedObject var viewModel: TicketViewModel
     @ObservedObject private var readStatusManager = ReadStatusManager.shared
     @ObservedObject private var chatService = ChatService.shared
+    @ObservedObject private var adConsent = AdConsentManager.shared
     
     @State private var isShowingCreateTicket = false
     @State private var isShowingSettings = false
@@ -49,7 +50,9 @@ struct TicketListContainerView: View {
                 }
                 .background(ClearBackgroundView())
                 
-                if !areAdsRemoved {
+                // No banner until UMP consent is settled — requesting an ad
+                // before that is exactly what Google's consent policy forbids.
+                if !areAdsRemoved && adConsent.canShowAds {
                     AdBannerView(adUnitID: adUnitID, width: geometry.size.width)
                         .frame(height: 50)
                 }

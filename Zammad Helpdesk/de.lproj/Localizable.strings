@@ -273,3 +273,4 @@
 "login_via_safari" = "Mit Safari anmelden";
 "paste_token" = "Token einfügen";
 "paste_token_explainer" = "Haben Sie über Safari ein Token in Ihrem Zammad-Profil erstellt? Fügen Sie es unten ein.";
+"ad_privacy_options" = "Anzeigen-Datenschutzoptionen";

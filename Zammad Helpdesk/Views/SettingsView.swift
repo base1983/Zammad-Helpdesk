@@ -494,7 +494,8 @@ private struct InAppPurchaseView: View {
     @StateObject private var storeManager = StoreManager()
     private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
     @AppStorage("are_ads_removed", store: Self.groupDefaults) private var areAdsRemoved: Bool = false
-    
+    @ObservedObject private var adConsent = AdConsentManager.shared
+
     var body: some View {
         Section(header: Text("in_app_purchases".localized())) {
             if areAdsRemoved {
@@ -523,6 +524,17 @@ private struct InAppPurchaseView: View {
             if !areAdsRemoved && !storeManager.isLoadingProducts {
                 Button("restore_purchases".localized()) {
                     Task { await storeManager.restorePurchases() }
+                }
+                .font(.footnote)
+            }
+
+            // Google's consent policy requires a lasting way to change the ad
+            // consent choice. UMP only asks for one where a form applies, so
+            // the row appears exactly when it is required — and never for
+            // premium users, who see no ads at all.
+            if !areAdsRemoved && adConsent.isPrivacyOptionsRequired {
+                Button("ad_privacy_options".localized()) {
+                    adConsent.presentPrivacyOptions()
                 }
                 .font(.footnote)
             }

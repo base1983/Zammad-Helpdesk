@@ -275,3 +275,4 @@
 "login_via_safari" = "Inloggen via Safari";
 "paste_token" = "Token plakken";
 "paste_token_explainer" = "Heb je via Safari een token aangemaakt in je Zammad-profiel? Plak hem dan hieronder.";
+"ad_privacy_options" = "Advertentievoorkeuren";
