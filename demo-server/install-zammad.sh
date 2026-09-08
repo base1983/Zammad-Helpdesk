@@ -113,25 +113,36 @@ for _ in $(seq 1 90); do
     if curl -fs -o /dev/null http://127.0.0.1:3000/api/v1/getting_started; then break; fi
     sleep 2
 done
-zammad run rails r "
+# `zammad run` hands its arguments to `sh -c`, which mangles inline Ruby with
+# quotes and parentheses. So the Ruby goes into a file that `rails r` reads
+# itself. Rails runs as the `zammad` user, which can read neither /root nor
+# /etc/elasticsearch/certs, hence the staging copies under /opt/zammad/tmp.
+STAGE=/opt/zammad/tmp/demo-setup
+mkdir -p "$STAGE"
+cp /etc/elasticsearch/certs/http_ca.crt "$STAGE/es_ca.crt"
+cat > "$STAGE/configure.rb" <<EOF
 Setting.set('fqdn', '${FQDN}')
 Setting.set('http_type', 'https')
 Setting.set('api_token_access', true)
 Setting.set('es_url', 'https://localhost:9200')
 Setting.set('es_user', 'elastic')
-Setting.set('es_password', '${ES_PASS}')
-puts 'fqdn=' + Setting.get('fqdn') + ' http_type=' + Setting.get('http_type') + ' es_url=' + Setting.get('es_url')
-"
-# Trust the auto-generated ES CA so es_ssl_verify can stay on. Skip if it is
-# already known (re-run).
-cat /etc/elasticsearch/certs/http_ca.crt | zammad run rails r '
-cert = STDIN.read
+Setting.set('es_password', File.read('${STAGE}/es_password').strip)
+# Trust the auto-generated ES CA so es_ssl_verify can stay on; skip on re-run.
+cert = File.read('${STAGE}/es_ca.crt')
 SSLCertificate.create!(certificate: cert) unless SSLCertificate.exists?(certificate: cert)
-puts "es-ca: " + SSLCertificate.count.to_s + " certificate(s) trusted"
-'
+puts "fqdn=#{Setting.get('fqdn')} http_type=#{Setting.get('http_type')} es_url=#{Setting.get('es_url')}"
+puts "es-ca: #{SSLCertificate.count} certificate(s) trusted"
+EOF
+printf '%s' "$ES_PASS" > "$STAGE/es_password"
+chown -R zammad:zammad "$STAGE"
+chmod 700 "$STAGE"
+chmod 600 "$STAGE"/*
+zammad run rails r "$STAGE/configure.rb"
+rm -rf "$STAGE"
+
 systemctl restart zammad
 echo "    building the search index..."
-zammad run rake "zammad:searchindex:rebuild[4]" >/dev/null
+zammad run rake zammad:searchindex:rebuild >/dev/null
 
 cat <<EOF
 
