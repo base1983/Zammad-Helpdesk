@@ -622,9 +622,10 @@ Real issues found in the project that affect this submission:
    self-classification report) before submitting. This is a legal/compliance call, not a
    code one.
 
-3. **SKAdNetwork list is one entry long.** `SKAdNetworkItems` contains only
-   `cstr6suwn9.skadnetwork`. Google publishes a full list for the Mobile Ads SDK — adding
-   it improves ad attribution and revenue. Not a blocker.
+3. ~~**SKAdNetwork list is one entry long.**~~ **Done.** It now carries Google's full
+   list of 50 identifiers. It was also written as an array of plain strings instead of
+   dicts keyed by `SKAdNetworkIdentifier`, so even the single entry it had was inert; the
+   format is fixed too. Verified in a Release archive: 50 items in the built bundle.
 
 4. **App Privacy nutrition labels.** You must declare what AdMob collects (device ID,
    usage data, coarse location, "used for third-party advertising"), plus the identifiers
@@ -636,7 +637,35 @@ Real issues found in the project that affect this submission:
    consistently with that, and do not add `NSUserTrackingUsageDescription` unless you
    actually present the prompt.
 
-6. **Disclaimer placement.** Keep the unofficial notice in the *second paragraph* of the
+6. ~~**No consent flow (CMP).**~~ **Done.** `AdConsentManager` now drives Google's User
+   Messaging Platform: it requests the consent status, presents the form where one is
+   required, and starts the Mobile Ads SDK only afterwards; the banner waits on
+   `canRequestAds`. Settings shows a lasting entry point to change that choice, exactly
+   when UMP reports `privacyOptionsRequirementStatus == .required`, and never to premium
+   users. This is Google's EEA policy requirement, not Apple's.
+
+7. ~~**Ads used Google's test unit.**~~ **Done.** Release builds serve
+   `ca-app-pub-7428603098298858/7003691655`; Debug keeps the test unit, so development
+   never clicks live ads.
+
+8. ~~**Watch app version mismatch.**~~ **Done.** The embedded watch app was on 1.1
+   (build 3) against the iOS app's 1.2 — confirmed in an actual archive, and it would
+   have failed upload validation. Both are 1.2, build 10011.
+
+9. ~~**App Review could not test the purchase.**~~ **Done.** Premium used to be granted
+   automatically whenever `AppTransaction.environment != .production`, and App Review runs
+   in the same sandbox environment as TestFlight, so the reviewer would have received every
+   paid feature for free and never seen the paywall. Entitlement now comes only from the
+   lifetime unlock or an active subscription. Sandbox purchases are free, so TestFlight
+   testers still unlock everything through the real flow — which is what the review note
+   above asks the reviewer to do.
+
+10. **Still yours to fill in: the demo account.** Section 8 still reads
+    `<your-demo-server>` and `<token with ticket.agent rights>`. A submission without
+    working credentials is rejected as "unable to review", and the instance has to stay
+    reachable for the whole review.
+
+11. **Disclaimer placement.** Keep the unofficial notice in the *second paragraph* of the
    description, not buried at the bottom. The App Store truncates after roughly three
    lines on the product page, but reviewers read the whole field — having it high up is
    what defuses a 5.2.1 question before it is asked.
