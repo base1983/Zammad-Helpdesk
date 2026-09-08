@@ -26,7 +26,10 @@ COLLEAGUE_EMAIL="${COLLEAGUE_EMAIL:-colleague@zammaddemo.world-ict.nl}"
 
 api() { # method path [json]
     local method="$1" path="$2" body="${3:-}"
-    curl -fsS -u "${ADMIN_USER}:${ADMIN_PASS}" -X "$method" \
+    # Retries cover the occasional connection timeout or transient 5xx a
+    # freshly installed instance produces while Elasticsearch settles.
+    curl -fsS --connect-timeout 10 -m 60 --retry 3 --retry-delay 3 --retry-all-errors \
+        -u "${ADMIN_USER}:${ADMIN_PASS}" -X "$method" \
         -H 'Content-Type: application/json' \
         ${body:+--data "$body"} \
         "${ZAMMAD_URL}/api/v1${path}"
@@ -45,7 +48,7 @@ echo "    organisation id ${ORG_ID}"
 make_user() { # email firstname lastname roles-json extra-json
     local email="$1" first="$2" last="$3" roles="$4" extra="${5:-}"
     local id
-    id=$(api GET "/users/search?query=email:${email}" | field 'd[0]["id"] if d else ""')
+    id=$(api GET "/users?per_page=500" | field "next((u['id'] for u in d if (u.get('email') or '').lower() == '${email}'.lower()), '')")
     if [[ -z "$id" ]]; then
         id=$(api POST /users "{\"email\":\"${email}\",\"firstname\":\"${first}\",\"lastname\":\"${last}\",\"roles\":${roles},\"active\":true${extra:+,${extra}}}" | field 'd["id"]')
         echo "    created ${first} ${last} (${id})"
@@ -55,9 +58,18 @@ make_user() { # email firstname lastname roles-json extra-json
     echo "$id"
 }
 
+GROUP_ID=$(api GET /groups | field 'next(g["id"] for g in d if g["active"])')
+
 echo "==> Agents"
 REVIEWER_ID=$(make_user "$REVIEW_EMAIL" "App" "Reviewer" '["Agent"]' "\"password\":\"${REVIEW_PASS}\"" | tail -1)
 COLLEAGUE_ID=$(make_user "$COLLEAGUE_EMAIL" "Demo" "Colleague" '["Agent"]' "\"password\":\"${REVIEW_PASS}\"" | tail -1)
+# The Agent role alone grants no group access, and Zammad refuses to assign a
+# ticket to an agent outside its group ("Invalid value for field owner_id").
+# Applied on every run, so agents created earlier get it too.
+for agent in "$REVIEWER_ID" "$COLLEAGUE_ID"; do
+    api PUT "/users/${agent}" "{\"group_ids\":{\"${GROUP_ID}\":[\"full\"]}}" >/dev/null
+done
+echo "    both agents have full access to group ${GROUP_ID}"
 
 echo "==> Customers"
 C1=$(make_user "j.devries@acme-logistics.example" "Jan" "de Vries" '["Customer"]' "\"organization_id\":${ORG_ID}" | tail -1)
@@ -65,16 +77,21 @@ C2=$(make_user "s.bakker@acme-logistics.example" "Sanne" "Bakker" '["Customer"]'
 C3=$(make_user "m.smit@example.org" "Mark" "Smit" '["Customer"]' | tail -1)
 
 echo "==> Tickets"
-GROUP_ID=$(api GET /groups | field 'next(g["id"] for g in d if g["active"])')
 make_ticket() { # title customer_id state priority owner_id body followup
     local title="$1" cust="$2" state="$3" prio="$4" owner="$5" body="$6" followup="${7:-}"
-    if api GET "/tickets/search?query=title:%22${title// /%20}%22" | field 'bool(d)' | grep -q True; then
+    if api GET "/tickets?per_page=500" | field "any(t['title'] == '''${title}''' for t in d)" | grep -q True; then
         echo "    exists  ${title}"; return
     fi
     local owner_json=""
     [[ -n "$owner" ]] && owner_json=",\"owner_id\":${owner}"
+    # Pending states are refused without a pending_time ("Missing required
+    # value for field 'pending_time'"). Tomorrow, same hour, is fine for a demo.
+    local pending_json=""
+    if [[ "$state" == pending* ]]; then
+        pending_json=",\"pending_time\":\"$(date -u -v+1d '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -d '+1 day' '+%Y-%m-%dT%H:%M:%SZ')\""
+    fi
     local id
-    id=$(api POST /tickets "{\"title\":\"${title}\",\"group_id\":${GROUP_ID},\"customer_id\":${cust},\"state\":\"${state}\",\"priority\":\"${prio}\"${owner_json},\"article\":{\"subject\":\"${title}\",\"body\":\"${body}\",\"type\":\"web\",\"internal\":false,\"sender\":\"Customer\"}}" | field 'd["id"]')
+    id=$(api POST /tickets "{\"title\":\"${title}\",\"group_id\":${GROUP_ID},\"customer_id\":${cust},\"state\":\"${state}\",\"priority\":\"${prio}\"${owner_json}${pending_json},\"article\":{\"subject\":\"${title}\",\"body\":\"${body}\",\"type\":\"web\",\"internal\":false,\"sender\":\"Customer\"}}" | field 'd["id"]')
     if [[ -n "$followup" ]]; then
         api POST /ticket_articles "{\"ticket_id\":${id},\"body\":\"${followup}\",\"type\":\"note\",\"internal\":false,\"sender\":\"Agent\"}" >/dev/null
     fi
@@ -105,9 +122,10 @@ make_ticket "Onboarding checklist for new hire (starts Monday)" "$C2" open "2 no
 echo "==> Reviewer API token (ticket.agent)"
 # A token can only be minted by its own user, so this call authenticates as
 # the reviewer rather than the admin.
-TOKEN=$(curl -fsS -u "${REVIEW_EMAIL}:${REVIEW_PASS}" -X POST \
+TOKEN=$(curl -fsS --connect-timeout 10 -m 60 --retry 3 --retry-delay 3 --retry-all-errors \
+    -u "${REVIEW_EMAIL}:${REVIEW_PASS}" -X POST \
     -H 'Content-Type: application/json' \
-    --data '{"label":"App Review (iOS app)","permission":["ticket.agent","user_preferences"],"expires_at":null}' \
+    --data '{"name":"App Review (iOS app)","permission":["ticket.agent","user_preferences"],"expires_at":null}' \
     "${ZAMMAD_URL}/api/v1/user_access_token" | field 'd["token"]')
 
 cat <<EOF

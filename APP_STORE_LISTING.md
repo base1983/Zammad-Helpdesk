@@ -425,10 +425,11 @@ this clearly. The app connects only to a Zammad server that the user supplies.
 
 DEMO ACCOUNT
 A test Zammad instance with sample tickets is ready for review:
-  Server URL: <your-demo-server>
-  API token:  <token with ticket.agent rights>
+  Server URL: https://zammaddemo.world-ict.nl
+  API token:  <paste the reviewer token — kept out of this repo on purpose>
 In the setup wizard, choose "API token", paste the URL and token, and tap Test Connection.
 Sample tickets, customers and chat contacts are pre-loaded.
+(Web login for the same agent, should the reviewer ask: reviewer@zammaddemo.world-ict.nl)
 
 PUSH NOTIFICATIONS
 Zammad has no native APNS support, so notifications are relayed by our own proxy at
@@ -660,10 +661,16 @@ Real issues found in the project that affect this submission:
    testers still unlock everything through the real flow — which is what the review note
    above asks the reviewer to do.
 
-10. **Still yours to fill in: the demo account.** Section 8 still reads
-    `<your-demo-server>` and `<token with ticket.agent rights>`. A submission without
-    working credentials is rejected as "unable to review", and the instance has to stay
-    reachable for the whole review.
+10. ~~**Still yours to fill in: the demo account.**~~ **Live.** `demo-server/` set up
+    `https://zammaddemo.world-ict.nl` on web05 (Zammad + PostgreSQL + Redis +
+    Elasticsearch 9, behind Plesk's nginx) and `seed-demo.sh` loaded it: two agents
+    ("App Reviewer", "Demo Colleague"), an organisation, three customers, eight tickets
+    across new/open/pending/closed with owners spread over both agents and unassigned, and
+    the reviewer's API token with `ticket.agent`. The token is deliberately not in this
+    file — paste it into App Store Connect from wherever you keep it. Still to do before
+    submitting: sign "Demo Colleague" into the app from your own phone once, so the
+    reviewer has a chat contact (see `demo-server/README.md`). The instance has to stay
+    reachable for the whole review; `systemctl status zammad` on web05 is the check.
 
 11. **Disclaimer placement.** Keep the unofficial notice in the *second paragraph* of the
    description, not buried at the bottom. The App Store truncates after roughly three
