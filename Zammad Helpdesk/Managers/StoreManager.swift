@@ -63,21 +63,17 @@ class StoreManager: ObservableObject {
         } catch {
             print("Failed to restore purchases: \(error)")
         }
-        // Re-evaluate entitlements regardless of the sync outcome — this also
-        // (re)applies the automatic TestFlight grant.
+        // Re-evaluate entitlements regardless of the sync outcome.
         await checkEntitlements()
     }
 
-    /// Premium is granted by the lifetime unlock, an active subscription, or
-    /// automatically for TestFlight/development builds so testers get the
-    /// full feature set without purchasing.
+    /// Premium comes from the lifetime unlock or an active subscription, and
+    /// from nothing else. There is deliberately no automatic grant for
+    /// non-production builds: App Review runs in the same sandbox environment
+    /// as TestFlight, so granting there would hide the paywall from the
+    /// reviewer and leave the purchase untestable. Sandbox purchases are free,
+    /// so testers can still unlock everything without paying.
     func checkEntitlements() async {
-        var isTestBuild = false
-        if let result = try? await AppTransaction.shared,
-           case .verified(let appTransaction) = result {
-            isTestBuild = appTransaction.environment != .production
-        }
-
         var hasLifetime = false
         for await result in Transaction.currentEntitlements(for: lifetimeProductID) {
             if case .verified(let transaction) = result, transaction.revocationDate == nil {
@@ -98,7 +94,7 @@ class StoreManager: ObservableObject {
             }
         }
 
-        SettingsManager.shared.save(areAdsRemoved: hasLifetime || isSubscribed || isTestBuild)
+        SettingsManager.shared.save(areAdsRemoved: hasLifetime || isSubscribed)
     }
 
     private func listenForTransactionUpdates() -> TransactionUpdateListener {

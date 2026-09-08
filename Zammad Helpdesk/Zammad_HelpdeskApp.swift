@@ -7,14 +7,15 @@ import WatchConnectivity
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     
     // Lives for the whole app session: checks premium entitlements at launch
-    // (including the automatic TestFlight grant) and keeps the StoreKit
+    // and keeps the StoreKit
     // transaction listener running.
     @MainActor private(set) lazy var storeManager = StoreManager()
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         
         migrateUserDefaultsToAppGroupIfNeeded()
-        MobileAds.shared.start(completionHandler: { _ in })
+        // Ads start only after UMP consent is settled (see AdConsentManager).
+        Task { @MainActor in AdConsentManager.shared.start() }
         BackgroundTaskManager.shared.registerBackgroundTask()
         Task { @MainActor in _ = self.storeManager } // kick off the launch entitlement check
         Task.detached(priority: .utility) {
