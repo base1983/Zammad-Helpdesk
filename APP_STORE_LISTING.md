@@ -573,9 +573,9 @@ you want a preview in a later release, re-record 15-30 seconds and transcode to 
 | Price | Free, with In-App Purchase |
 | In-App Purchase | Lifetime Unlock — one-time, non-consumable |
 | Copyright | 2026 World ICT |
-| Support URL | required — a real page that answers "how do I set this up?" |
+| Support URL | `https://base1983.github.io/Zammad-Helpdesk/` — `docs/index.html`, served by GitHub Pages from `main`/`docs`; same URL in all four localisations |
 | Marketing URL | optional |
-| Privacy Policy URL | **required** — you serve ads and run a notification proxy |
+| Privacy Policy URL | `https://base1983.github.io/Zammad-Helpdesk/privacy.html` — `docs/privacy.html`; lives under App Information, not on the version page |
 
 ---
 
