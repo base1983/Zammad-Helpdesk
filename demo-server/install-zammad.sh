@@ -7,27 +7,30 @@
 #
 # What it does:
 #   1. PostgreSQL 14 + Redis 6 from Ubuntu (both hard requirements of Zammad).
-#   2. Zammad from the official packager.io repository.
-#   3. Binds the Rails server and websocket to 127.0.0.1 only; Plesk's nginx
+#   2. Elasticsearch 9 from Elastic's repository. The Zammad .deb declares
+#      `elasticsearch | elasticsearch-oss` as a dependency, so it cannot be
+#      skipped by package even though it is optional at runtime. ES 9 ships
+#      with security on and TLS auto-generated; this keeps that and wires the
+#      credentials into Zammad rather than switching security off.
+#   3. Zammad from the official packager.io repository.
+#   4. Binds the Rails server and websocket to 127.0.0.1 only; Plesk's nginx
 #      proxies to them (see plesk-nginx-directives.conf).
-#   4. Removes the nginx site the package drops into /etc/nginx/sites-enabled —
+#   5. Removes the nginx site the package drops into /etc/nginx/sites-enabled —
 #      on a Plesk host that file would shadow Plesk's own vhosts.
-#   5. Sets FQDN/https so generated links and the CSRF origin check are right.
-#
-# Elasticsearch is deliberately skipped: it is optional, needs another ~2 GB of
-# RAM, and a demo with a few dozen tickets searches fine without it.
+#   6. Sets FQDN/https, connects Elasticsearch, builds the search index.
 
 set -euo pipefail
 
 FQDN="${FQDN:-zammaddemo.world-ict.nl}"
+ES_PASS_FILE=/root/.zammad-es-password
 
 if [[ $EUID -ne 0 ]]; then
     echo "Run as root (sudo -i)." >&2
     exit 1
 fi
-
-echo "==> [1/5] PostgreSQL + Redis"
 export DEBIAN_FRONTEND=noninteractive
+
+echo "==> [1/6] PostgreSQL + Redis"
 apt-get update -qq
 apt-get install -y -qq curl apt-transport-https gnupg postgresql redis-server
 systemctl enable --now postgresql redis-server
@@ -38,7 +41,47 @@ if ! grep -qE '^bind 127\.0\.0\.1' /etc/redis/redis.conf; then
     systemctl restart redis-server
 fi
 
-echo "==> [2/5] Zammad repository + package"
+echo "==> [2/6] Elasticsearch 9"
+if [[ ! -f /usr/share/keyrings/elasticsearch-keyring.gpg ]]; then
+    curl -fsSL https://artifacts.elastic.co/GPG-KEY-elasticsearch \
+        | gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg
+    chmod 644 /usr/share/keyrings/elasticsearch-keyring.gpg
+fi
+echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/9.x/apt stable main" \
+    > /etc/apt/sources.list.d/elastic-9.x.list
+apt-get update -qq
+apt-get install -y -qq elasticsearch
+
+# A demo does not need the default heap (half of RAM); 1 GB is plenty and keeps
+# the host's other vhosts comfortable.
+mkdir -p /etc/elasticsearch/jvm.options.d
+cat > /etc/elasticsearch/jvm.options.d/zammad.options <<'EOF'
+-Xms1g
+-Xmx1g
+EOF
+# Zammad's recommended ceiling for attachment indexing.
+grep -q '^http.max_content_length' /etc/elasticsearch/elasticsearch.yml \
+    || echo 'http.max_content_length: 400mb' >> /etc/elasticsearch/elasticsearch.yml
+
+systemctl daemon-reload
+systemctl enable --now elasticsearch.service
+echo "    waiting for Elasticsearch to come up (first start takes a while)..."
+for _ in $(seq 1 90); do
+    if curl -ks -o /dev/null https://127.0.0.1:9200/; then break; fi
+    sleep 2
+done
+
+# ES 9 does not print the elastic password on install; reset it once,
+# non-interactively, and keep it root-only so re-runs reuse it.
+if [[ ! -s "$ES_PASS_FILE" ]]; then
+    /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -b -s > "$ES_PASS_FILE"
+    chmod 600 "$ES_PASS_FILE"
+fi
+ES_PASS="$(tr -d '[:space:]' < "$ES_PASS_FILE")"
+curl -fks -u "elastic:${ES_PASS}" https://127.0.0.1:9200/ >/dev/null \
+    || { echo "Elasticsearch is up but the elastic password in $ES_PASS_FILE does not work." >&2; exit 1; }
+
+echo "==> [3/6] Zammad repository + package"
 if [[ ! -f /usr/share/keyrings/zammad.gpg ]]; then
     curl -fsSL "https://go.packager.io/srv/deb/zammad/zammad/gpg-key.gpg" \
         -o /usr/share/keyrings/zammad.gpg
@@ -49,28 +92,24 @@ curl -fsSL "https://go.packager.io/srv/zammad/zammad/stable/installer/ubuntu/22.
 apt-get update -qq
 apt-get install -y -qq zammad
 
-echo "==> [3/5] Bind to loopback; Plesk's nginx is the only public face"
+echo "==> [4/6] Bind to loopback; Plesk's nginx is the only public face"
 zammad config:set ZAMMAD_BIND_IP=127.0.0.1
 zammad config:set ZAMMAD_RAILS_PORT=3000
 zammad config:set ZAMMAD_WEBSOCKET_PORT=6042
 zammad config:set ZAMMAD_WEB_CONCURRENCY=2
 
-echo "==> [4/5] Drop the package's own nginx site (Plesk owns nginx here)"
+echo "==> [5/6] Drop the package's own nginx site (Plesk owns nginx here)"
 # The postinst writes a server block for 'localhost' on :80/:443. Under Plesk
 # that either conflicts with the panel's default vhost or is never included —
 # either way it must not be there.
 rm -f /etc/nginx/sites-enabled/zammad.conf /etc/nginx/sites-available/zammad.conf
-if command -v plesk >/dev/null; then
-    plesk sbin nginxmng --enable >/dev/null 2>&1 || true
-    plesk bin server_pref --update -nginx-reload true >/dev/null 2>&1 || true
-    systemctl reload nginx || systemctl reload sw-nginx || true
-fi
+systemctl reload nginx 2>/dev/null || systemctl reload sw-nginx 2>/dev/null || true
 
-echo "==> [5/5] Instance settings"
+echo "==> [6/6] Instance settings + Elasticsearch link"
 systemctl enable --now zammad
 # The first migration can take a minute; wait for the app to answer before
 # touching settings through it.
-for _ in $(seq 1 60); do
+for _ in $(seq 1 90); do
     if curl -fs -o /dev/null http://127.0.0.1:3000/api/v1/getting_started; then break; fi
     sleep 2
 done
@@ -78,14 +117,26 @@ zammad run rails r "
 Setting.set('fqdn', '${FQDN}')
 Setting.set('http_type', 'https')
 Setting.set('api_token_access', true)
-Setting.set('system_init_done', true) if Setting.get('system_init_done').nil?
-puts 'fqdn=' + Setting.get('fqdn') + ' http_type=' + Setting.get('http_type')
+Setting.set('es_url', 'https://localhost:9200')
+Setting.set('es_user', 'elastic')
+Setting.set('es_password', '${ES_PASS}')
+puts 'fqdn=' + Setting.get('fqdn') + ' http_type=' + Setting.get('http_type') + ' es_url=' + Setting.get('es_url')
 "
+# Trust the auto-generated ES CA so es_ssl_verify can stay on. Skip if it is
+# already known (re-run).
+cat /etc/elasticsearch/certs/http_ca.crt | zammad run rails r '
+cert = STDIN.read
+SSLCertificate.create!(certificate: cert) unless SSLCertificate.exists?(certificate: cert)
+puts "es-ca: " + SSLCertificate.count.to_s + " certificate(s) trusted"
+'
 systemctl restart zammad
+echo "    building the search index..."
+zammad run rake "zammad:searchindex:rebuild[4]" >/dev/null
 
 cat <<EOF
 
-Done. Zammad is listening on 127.0.0.1:3000 (app) and 127.0.0.1:6042 (websocket).
+Done. Zammad is listening on 127.0.0.1:3000 (app) and 127.0.0.1:6042 (websocket);
+Elasticsearch on 127.0.0.1:9200 (elastic password in ${ES_PASS_FILE}, root-only).
 
 Next:
   1. In Plesk, for ${FQDN}: Apache & nginx Settings -> turn OFF "Proxy mode",

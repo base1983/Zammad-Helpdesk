@@ -32,17 +32,22 @@ laptop.
 
 ## Choices made
 
-- **No Elasticsearch.** Optional per Zammad, ~2 GB of RAM, and a demo with a few
-  dozen tickets searches fine on PostgreSQL alone.
+- **Elasticsearch 9, security left on.** The plan was to skip it — optional at
+  runtime, and a demo this size searches fine without — but the Zammad `.deb`
+  declares `elasticsearch | elasticsearch-oss` as a hard dependency, so apt
+  refuses to install Zammad without it. ES 9 arrives with authentication and
+  auto-generated TLS; the script keeps both, resets the `elastic` password once
+  into `/root/.zammad-es-password`, hands it to Zammad, and trusts the generated
+  CA so `es_ssl_verify` stays on. Heap is pinned to 1 GB.
 - **Loopback only.** Zammad listens on `127.0.0.1:3000` (app) and `:6042`
   (websocket); Plesk's nginx is the only thing on the public interface. Redis is
   pinned to `127.0.0.1` too — it ships without authentication.
 - **`X-Forwarded-Proto https`, hardcoded.** Plesk terminates TLS, so `$scheme`
   would read `http` at the app and trip Zammad's CSRF origin check.
 - **Same host as the proxy.** web05 has 8 cores, 16 GB and 328 GB free; Zammad
-  without Elasticsearch idles around 1 GB. If the demo ever competes with the
-  other vhosts, Zammad's official Docker Compose on a €5 VPS is the clean
-  alternative — `seed-demo.sh` works unchanged against it.
+  plus a 1 GB Elasticsearch heap idles around 2–2.5 GB. If the demo ever
+  competes with the other vhosts, Zammad's official Docker Compose on a small
+  VPS is the clean alternative — `seed-demo.sh` works unchanged against it.
 
 ## Keeping it alive
 
