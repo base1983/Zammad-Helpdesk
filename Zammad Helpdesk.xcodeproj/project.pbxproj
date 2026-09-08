@@ -456,7 +456,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk/Zammad Helpdesk.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10013;
+				CURRENT_PROJECT_VERSION = 10014;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
@@ -495,7 +495,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk/Zammad Helpdesk.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10013;
+				CURRENT_PROJECT_VERSION = 10014;
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -532,7 +532,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk Watch App/Zammad Helpdesk Watch App.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10013;
+				CURRENT_PROJECT_VERSION = 10014;
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -567,7 +567,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Zammad Helpdesk Watch App/Zammad Helpdesk Watch App.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10013;
+				CURRENT_PROJECT_VERSION = 10014;
 				DEVELOPMENT_TEAM = BT576Q4697;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
