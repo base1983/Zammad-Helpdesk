@@ -8,6 +8,7 @@ struct TicketListContainerView: View {
     @ObservedObject private var readStatusManager = ReadStatusManager.shared
     @ObservedObject private var chatService = ChatService.shared
     @ObservedObject private var adConsent = AdConsentManager.shared
+    @State private var isAdLoaded = false
     
     @State private var isShowingCreateTicket = false
     @State private var isShowingSettings = false
@@ -59,9 +60,13 @@ struct TicketListContainerView: View {
                 
                 // No banner until UMP consent is settled — requesting an ad
                 // before that is exactly what Google's consent policy forbids.
+                // The banner stays in the hierarchy so the SDK keeps trying,
+                // but takes no room until an ad has actually arrived — an
+                // empty strip is worse than no strip.
                 if !areAdsRemoved && adConsent.canShowAds {
-                    AdBannerView(adUnitID: adUnitID, width: geometry.size.width)
-                        .frame(height: 50)
+                    AdBannerView(adUnitID: adUnitID, width: geometry.size.width, isLoaded: $isAdLoaded)
+                        .frame(height: isAdLoaded ? 50 : 0)
+                        .clipped()
                 }
             }
             .background(ClearBackgroundView())
