@@ -49,6 +49,27 @@ laptop.
   competes with the other vhosts, Zammad's official Docker Compose on a small
   VPS is the clean alternative — `seed-demo.sh` works unchanged against it.
 
+## Do not chat on the demo before the review
+
+Since chat v4 a message's key is wrapped, at send time, for the devices that
+exist right then. The reviewer's device does not exist yet, so any message
+exchanged between the two demo agents beforehand shows up for the reviewer as
+"could not be decrypted" — which reads as a bug. Both agents can (and should)
+be signed in once so they appear as chat contacts; just leave the conversation
+empty. If something was sent anyway, wipe it for both sides with the
+reviewer's token:
+
+```
+curl -X POST https://zammadproxy.world-ict.nl/api/chat/conversations/delete \
+  -H 'Authorization: Token token=<reviewer token>' \
+  -H 'X-Zammad-Url: https://zammaddemo.world-ict.nl' \
+  -H 'Content-Type: application/json' \
+  --data '{"with_user_id": <chat id of Demo Colleague, from /api/chat/users>}'
+```
+
+The contacts and their keys survive; only the messages go. Phones that took
+part keep a local copy of the history until the chat is deleted in the app.
+
 ## Keeping it alive
 
 The instance has to answer for the whole review, and again for every
