@@ -454,6 +454,121 @@ its second paragraph that the app is unofficial and unaffiliated.
 
 ---
 
+## 8b. Reply to "Guideline 2.1 — Information Needed" (9 Sept 2026)
+
+App Review asked for six things on the first 1.2 submission (build 1.2 (40),
+Xcode Cloud). Paste the text below as the reply in App Store Connect **and**
+append it to the Notes field of App Review Information, as they ask. Attach
+the screen recording to the reply (see the recording plan after the text).
+
+```
+Thank you for reviewing Helpdesk for Zammad. Answers to your six points:
+
+1. SCREEN RECORDING
+Attached: recorded on a physical iPhone running the current iOS release. It
+starts at app launch and shows: the setup wizard (server URL + API token, Test
+Connection), the ticket queue and filters, opening a ticket, replying, handing
+a ticket to a colleague, the encrypted colleague chat (sending, deleting a
+message, deleting a conversation, leaving/deleting a group), the Premium
+paywall with the three products and a sandbox purchase of Lifetime Unlock, and
+finally Settings > Disconnect, which removes all stored credentials from the
+device.
+
+Account registration / deletion: the app does not create accounts. Users sign
+in with an existing account on their own Zammad server (self-hosted helpdesk
+software), using an API token issued there. There is nothing to register and
+therefore nothing to delete; "Disconnect" in Settings wipes the device's copy of
+the credentials, and disabling notifications removes the push registration on
+our relay immediately.
+
+User-generated content: the only user content is the colleague chat. It is a
+closed channel between authenticated agents of the same Zammad server — the
+customer's own organisation — not a public or cross-organisation space.
+Members are administered by that organisation's Zammad admin, who can
+deactivate any agent, which removes them from the chat directory. Every user
+can delete their own messages for everyone, delete a whole conversation for
+both sides, and leave a group. Contact for abuse reports is in the app and in
+the support page (b.jonkers@world-ict.nl).
+
+Paid content: Premium (Lifetime Unlock, or a monthly/yearly subscription)
+removes the ad banner and enables real-time push notifications and the app
+icon badge. All three products are shown and the sandbox purchase is in the
+recording.
+
+2. PURPOSE AND AUDIENCE
+Helpdesk for Zammad is an independent mobile client for Zammad, an open-source
+helpdesk / ticketing system that companies run on their own servers. Its users
+are support agents and IT staff of such companies. Zammad's own web interface
+is built for desktop; this app lets an agent work the ticket queue from a
+phone or Apple Watch: triage, reply, reassign, log time, and get a push
+notification when a ticket they own changes. It solves the "I'm away from my
+desk and a ticket escalated" problem.
+
+3. SETUP AND ACCESS
+A demo Zammad server with sample data is ready for you:
+  Server URL: https://zammaddemo.world-ict.nl
+  API token:  <the token in App Review Information>
+In the setup wizard choose "API token", enter the URL and the token, tap Test
+Connection. The queue shows nine tickets across new / open / pending / closed;
+some are assigned to you (App Reviewer), some to a colleague (Demo Colleague),
+some unassigned. "Demo Colleague" is available in the chat and as a hand-off
+target. Web login for the same account, should you want to see the server
+side: reviewer@zammaddemo.world-ict.nl / <password in App Review Information>.
+
+Push notifications need a webhook trigger on the Zammad server; the app shows
+the exact URL to paste. On the demo server this is already configured for the
+reviewer account.
+
+4. EXTERNAL SERVICES
+- The user's own Zammad server (self-hosted by the customer), via Zammad's
+  public REST API. This is where all ticket data lives; we never see it.
+- Our relay at zammadproxy.world-ict.nl, operated by us: forwards Zammad
+  webhook events to Apple Push Notification service, and relays the
+  end-to-end-encrypted colleague chat (it stores ciphertext only).
+- Apple Push Notification service, StoreKit (In-App Purchase).
+- Google AdMob (banner ad in the free version) with Google's User Messaging
+  Platform for consent where required.
+No authentication providers, payment processors of our own, AI services, or
+analytics SDKs.
+
+5. REGIONAL DIFFERENCES
+The app functions identically in all regions. Two cosmetic differences: the ad
+consent form appears only where the law requires it (EEA/UK), and the interface
+follows the device language for English, Dutch, German and French. Ad fill may
+vary by region; the app hides the banner when no ad is available.
+
+6. REGULATED INDUSTRY / THIRD-PARTY MATERIAL
+Not a regulated industry. Zammad is open-source server software (AGPL) with a
+public REST API intended for third-party clients; no license or credential is
+required to build a client for it. The name "Zammad" is used only descriptively
+("Helpdesk for Zammad") to identify what the app connects to, and the App Store
+description states that the app is independent and not affiliated with Zammad
+GmbH. The app contains no protected third-party material.
+```
+
+### Recording plan (2–4 minutes, one take, physical iPhone)
+
+Use iOS screen recording (Control Center). Use the *demo* server and the
+reviewer token so what they see in the video matches what they get. Order:
+
+1. Launch from the home screen (this must be the first frame).
+2. Setup wizard: server URL, API token, Test Connection, queue loads.
+3. Filters (Mine / Unassigned / All open), open a ticket, scroll the thread.
+4. Reply to the ticket; log time.
+5. Hand off the ticket to Demo Colleague with a note.
+6. Chat: open the conversation with Demo Colleague, send a message, delete it
+   ("Message deleted"), then delete the conversation. Open a group, leave it.
+7. Settings: Premium — show the three products, buy Lifetime Unlock with a
+   sandbox tester account (free); banner disappears, notifications toggle
+   becomes available. Show Restore Purchases.
+8. Settings: Disconnect, back to the wizard. Stop recording.
+
+**Afterwards:** wipe the chat conversation with the curl in
+`demo-server/README.md`. The reviewer's device does not exist yet, so the
+messages you sent in the recording would be unreadable on it.
+
+The 8-second clip in `Screenshots/` is an App Preview draft, not this.
+
 ## 9. Screenshots and app preview
 
 ### What is in `Screenshots/`
