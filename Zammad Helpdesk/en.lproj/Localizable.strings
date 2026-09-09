@@ -308,3 +308,16 @@
 "paste_token" = "Paste token";
 "paste_token_explainer" = "Did you create a token via Safari in your Zammad profile? Paste it below.";
 "ad_privacy_options" = "Ad privacy options";
+
+// Chat moderation (App Store Guideline 1.2)
+"chat_report_message" = "Report message";
+"chat_block_user" = "Block %@";
+"chat_block" = "Block";
+"chat_unblock" = "Unblock";
+"chat_block_confirm" = "Block %@? Their messages disappear and they are removed from your contacts. You can undo this in Settings › Chat › Blocked colleagues.";
+"chat_blocked_users" = "Blocked colleagues";
+"chat_blocked_none" = "No blocked colleagues.";
+"chat_blocked_footer" = "Blocked colleagues cannot message you and are hidden from your contacts. To report abuse, long-press a message and choose Report, or e-mail %@.";
+"chat_user_blocked" = "You have blocked this colleague. Unblock them in Settings to send messages.";
+"chat_report_mail_unavailable" = "No e-mail account is set up on this device. Send your report to %@.";
+"chat_report_subject" = "Report: chat content in Helpdesk for Zammad";

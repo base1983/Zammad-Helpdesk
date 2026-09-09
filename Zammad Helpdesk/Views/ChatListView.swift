@@ -8,6 +8,7 @@ struct ChatListView: View {
 
     @State private var conversations: [ChatConversation] = []
     @State private var engineers: [ChatUser] = []
+    @State private var partnerToBlock: ChatUser?
     @State private var groups: [ChatGroup] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -136,6 +137,14 @@ struct ChatListView: View {
                 } label: {
                     Label(deleteLabel(for: conversation), systemImage: "trash")
                 }
+                if let partner = conversation.partner {
+                    Button {
+                        partnerToBlock = partner
+                    } label: {
+                        Label("chat_block".localized(), systemImage: "hand.raised")
+                    }
+                    .tint(.orange)
+                }
             }
         }
         .listStyle(.plain)
@@ -151,6 +160,19 @@ struct ChatListView: View {
             }
         } message: { conversation in
             Text(isLeavingGroup(conversation) ? "chat_leave_group_confirm".localized() : "chat_delete_chat_confirm".localized())
+        }
+        .confirmationDialog(
+            partnerToBlock.map { String(format: "chat_block_user".localized(), $0.name) } ?? "",
+            isPresented: Binding(get: { partnerToBlock != nil }, set: { if !$0 { partnerToBlock = nil } }),
+            titleVisibility: .visible,
+            presenting: partnerToBlock
+        ) { partner in
+            Button("chat_block".localized(), role: .destructive) {
+                ChatBlockList.shared.block(partner)
+                Task { await load() }
+            }
+        } message: { partner in
+            Text(String(format: "chat_block_confirm".localized(), partner.name))
         }
     }
 

@@ -274,3 +274,16 @@
 "paste_token" = "Token einfügen";
 "paste_token_explainer" = "Haben Sie über Safari ein Token in Ihrem Zammad-Profil erstellt? Fügen Sie es unten ein.";
 "ad_privacy_options" = "Anzeigen-Datenschutzoptionen";
+
+// Chat moderation (App Store Guideline 1.2)
+"chat_report_message" = "Nachricht melden";
+"chat_block_user" = "%@ blockieren";
+"chat_block" = "Blockieren";
+"chat_unblock" = "Blockierung aufheben";
+"chat_block_confirm" = "%@ blockieren? Nachrichten dieser Person verschwinden und sie wird aus deinen Kontakten entfernt. Rückgängig unter Einstellungen › Chat › Blockierte Kollegen.";
+"chat_blocked_users" = "Blockierte Kollegen";
+"chat_blocked_none" = "Keine blockierten Kollegen.";
+"chat_blocked_footer" = "Blockierte Kollegen können dir keine Nachrichten senden und erscheinen nicht in deinen Kontakten. Missbrauch melden: Nachricht gedrückt halten und Melden wählen, oder E-Mail an %@.";
+"chat_user_blocked" = "Du hast diese Person blockiert. Hebe die Blockierung in den Einstellungen auf, um Nachrichten zu senden.";
+"chat_report_mail_unavailable" = "Auf diesem Gerät ist kein E-Mail-Konto eingerichtet. Sende deine Meldung an %@.";
+"chat_report_subject" = "Meldung: Chatinhalt in Helpdesk for Zammad";

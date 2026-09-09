@@ -22,6 +22,8 @@ struct ChatConversationView: View {
     @State private var isSending = false
     @State private var errorMessage: String?
     @State private var lastPollDate = Date()
+    @State private var blockCandidate: BlockCandidate?
+    @Environment(\.dismiss) private var moderationDismiss
 
     // #ticket reference
     @State private var isShowingTicketSearch = false
@@ -101,6 +103,16 @@ struct ChatConversationView: View {
             inputBar
         }
         .background(theme.background.ignoresSafeArea())
+        .confirmationDialog(
+            blockCandidate.map { String(format: "chat_block_user".localized(), $0.name) } ?? "",
+            isPresented: Binding(get: { blockCandidate != nil }, set: { if !$0 { blockCandidate = nil } }),
+            titleVisibility: .visible,
+            presenting: blockCandidate
+        ) { candidate in
+            Button("chat_block".localized(), role: .destructive) { block(candidate) }
+        } message: { candidate in
+            Text(String(format: "chat_block_confirm".localized(), candidate.name))
+        }
         .navigationTitle(target.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -208,8 +220,55 @@ struct ChatConversationView: View {
                     } label: {
                         Label("chat_delete_for_me".localized(), systemImage: "trash")
                     }
+                    // Guideline 1.2: report objectionable content, block its author.
+                    Button {
+                        report(message)
+                    } label: {
+                        Label("chat_report_message".localized(), systemImage: "exclamationmark.bubble")
+                    }
+                    Button(role: .destructive) {
+                        blockCandidate = BlockCandidate(id: message.fromUserId, name: senderName(of: message), email: nil)
+                    } label: {
+                        Label(String(format: "chat_block_user".localized(), senderName(of: message)), systemImage: "hand.raised")
+                    }
                 }
             }
+        }
+    }
+
+    // MARK: - Moderation
+
+    private struct BlockCandidate: Identifiable {
+        let id: Int
+        let name: String
+        let email: String?
+    }
+
+    private func senderName(of message: ChatMessage) -> String {
+        if case .direct(let partner) = target { return partner.name }
+        return message.fromUserName ?? String(message.fromUserId)
+    }
+
+    /// Hands the message to the mail composer, pre-filled. Falls back to
+    /// showing the address when the device has no mail account.
+    private func report(_ message: ChatMessage) {
+        let url = ChatReporter.reportURL(for: message, in: target, reporterName: viewModel.currentUser?.fullname)
+        if !ChatReporter.open(url) {
+            errorMessage = String(format: "chat_report_mail_unavailable".localized(), ChatReporter.address)
+        }
+    }
+
+    /// Blocks the author. In a direct conversation that ends the conversation
+    /// (the list no longer shows it); in a group their messages just vanish.
+    private func block(_ candidate: BlockCandidate) {
+        var email = candidate.email
+        if case .direct(let partner) = target { email = partner.email }
+        ChatBlockList.shared.block(id: candidate.id, name: candidate.name, email: email)
+        switch target {
+        case .direct:
+            moderationDismiss()
+        case .group:
+            messages.removeAll { $0.fromUserId == candidate.id }
         }
     }
 

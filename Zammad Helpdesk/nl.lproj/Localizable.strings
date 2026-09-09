@@ -276,3 +276,16 @@
 "paste_token" = "Token plakken";
 "paste_token_explainer" = "Heb je via Safari een token aangemaakt in je Zammad-profiel? Plak hem dan hieronder.";
 "ad_privacy_options" = "Advertentievoorkeuren";
+
+// Chat moderation (App Store Guideline 1.2)
+"chat_report_message" = "Bericht rapporteren";
+"chat_block_user" = "%@ blokkeren";
+"chat_block" = "Blokkeren";
+"chat_unblock" = "Deblokkeren";
+"chat_block_confirm" = "%@ blokkeren? Berichten van deze collega verdwijnen en de collega wordt uit je contacten gehaald. Ongedaan maken kan via Instellingen › Chat › Geblokkeerde collega's.";
+"chat_blocked_users" = "Geblokkeerde collega's";
+"chat_blocked_none" = "Geen geblokkeerde collega's.";
+"chat_blocked_footer" = "Geblokkeerde collega's kunnen je geen berichten sturen en staan niet in je contacten. Misbruik melden: houd een bericht ingedrukt en kies Rapporteren, of mail naar %@.";
+"chat_user_blocked" = "Je hebt deze collega geblokkeerd. Deblokkeer via Instellingen om berichten te sturen.";
+"chat_report_mail_unavailable" = "Er is geen e-mailaccount ingesteld op dit toestel. Stuur je melding naar %@.";
+"chat_report_subject" = "Melding: chatinhoud in Helpdesk for Zammad";

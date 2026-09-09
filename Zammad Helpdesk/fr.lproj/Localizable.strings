@@ -276,3 +276,16 @@
 "paste_token" = "Coller le jeton";
 "paste_token_explainer" = "Avez-vous créé un jeton via Safari dans votre profil Zammad ? Collez-le ci-dessous.";
 "ad_privacy_options" = "Options de confidentialité des annonces";
+
+// Chat moderation (App Store Guideline 1.2)
+"chat_report_message" = "Signaler le message";
+"chat_block_user" = "Bloquer %@";
+"chat_block" = "Bloquer";
+"chat_unblock" = "Débloquer";
+"chat_block_confirm" = "Bloquer %@ ? Ses messages disparaissent et il est retiré de vos contacts. Annulable dans Réglages › Chat › Collègues bloqués.";
+"chat_blocked_users" = "Collègues bloqués";
+"chat_blocked_none" = "Aucun collègue bloqué.";
+"chat_blocked_footer" = "Les collègues bloqués ne peuvent pas vous écrire et n'apparaissent pas dans vos contacts. Pour signaler un abus, maintenez un message appuyé et choisissez Signaler, ou écrivez à %@.";
+"chat_user_blocked" = "Vous avez bloqué ce collègue. Débloquez-le dans les Réglages pour lui écrire.";
+"chat_report_mail_unavailable" = "Aucun compte e-mail n'est configuré sur cet appareil. Envoyez votre signalement à %@.";
+"chat_report_subject" = "Signalement : contenu de chat dans Helpdesk for Zammad";

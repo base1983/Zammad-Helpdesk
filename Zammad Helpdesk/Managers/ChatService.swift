@@ -169,6 +169,7 @@ enum ChatError: Error, LocalizedError {
     case serverError(statusCode: Int)
     case encryptionUnavailable
     case attachmentTooLarge
+    case userBlocked
     /// The proxy answered, but not in the shape this app understands — in
     /// practice a proxy still running the pre-v4 (one key per user) protocol.
     case protocolMismatch
@@ -179,6 +180,7 @@ enum ChatError: Error, LocalizedError {
         case .serverError(let code): return String(format: "chat_server_error".localized(), code)
         case .encryptionUnavailable: return "chat_encryption_unavailable".localized()
         case .attachmentTooLarge: return "chat_attachment_too_large".localized()
+        case .userBlocked: return "chat_user_blocked".localized()
         case .protocolMismatch: return "chat_server_outdated".localized()
         }
     }
@@ -544,7 +546,8 @@ final class ChatService: ObservableObject {
     func fetchEngineers() async throws -> [ChatUser] {
         let request = try makeRequest(path: "users")
         let users: [ChatUser] = try await perform(request)
-        return users.filter { $0.id != myChatUserId }
+        let blocked = ChatBlockList.shared.blockedIDs
+        return users.filter { $0.id != myChatUserId && !blocked.contains($0.id) }
     }
 
     // MARK: Conversations
@@ -552,6 +555,13 @@ final class ChatService: ObservableObject {
     func fetchConversations() async throws -> [ChatConversation] {
         let request = try makeRequest(path: "conversations")
         var conversations: [ChatConversation] = try await perform(request)
+        // A blocked colleague's direct conversation is gone from the list and
+        // from the unread total; groups stay, their messages are filtered later.
+        let blocked = ChatBlockList.shared.blockedIDs
+        conversations.removeAll { conversation in
+            if let partner = conversation.partner { return blocked.contains(partner.id) }
+            return false
+        }
         for index in conversations.indices {
             guard let last = conversations[index].lastMessage else { continue }
             var decrypted = last
@@ -682,6 +692,12 @@ final class ChatService: ObservableObject {
         }
         let request = try makeRequest(path: "messages", queryItems: query)
         var messages: [ChatMessage] = try await perform(request)
+        // Nothing from a blocked sender reaches the screen — matters in groups,
+        // where the conversation itself stays visible.
+        let blocked = ChatBlockList.shared.blockedIDs
+        if !blocked.isEmpty {
+            messages.removeAll { blocked.contains($0.fromUserId) && $0.fromUserId != myChatUserId }
+        }
         for index in messages.indices {
             if messages[index].deleted == true {
                 // Tombstone: the sender deleted this message for everyone.
@@ -716,6 +732,7 @@ final class ChatService: ObservableObject {
 
         switch target {
         case .direct(let partner):
+            guard !ChatBlockList.shared.isBlocked(partner.id) else { throw ChatError.userBlocked }
             guard partner.canReceiveEncrypted else { throw ChatError.encryptionUnavailable }
             // Our own device list comes from register(); without it we'd send a
             // message we couldn't read back ourselves.

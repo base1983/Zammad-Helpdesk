@@ -188,6 +188,11 @@ struct SettingsView: View {
             .onChange(of: chatRetentionDays) { _, _ in
                 Task.detached(priority: .utility) { ChatHistoryStore.shared.pruneAll() }
             }
+            NavigationLink {
+                BlockedUsersView()
+            } label: {
+                Label("chat_blocked_users".localized(), systemImage: "hand.raised")
+            }
         }
     }
 

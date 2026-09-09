@@ -485,10 +485,14 @@ User-generated content: the only user content is the colleague chat. It is a
 closed channel between authenticated agents of the same Zammad server — the
 customer's own organisation — not a public or cross-organisation space.
 Members are administered by that organisation's Zammad admin, who can
-deactivate any agent, which removes them from the chat directory. Every user
-can delete their own messages for everyone, delete a whole conversation for
-both sides, and leave a group. Contact for abuse reports is in the app and in
-the support page (b.jonkers@world-ict.nl).
+deactivate any agent, which removes them from the chat directory. In the app,
+long-pressing any message offers "Report message" (a pre-filled e-mail to
+b.jonkers@world-ict.nl with the message, sender and context) and "Block
+<name>"; blocking hides that colleague's messages and removes them from the
+contact list, and can be undone under Settings > Chat > Blocked colleagues. A
+conversation can also be blocked from the chat list. Every user can delete
+their own messages for everyone, delete a whole conversation for both sides,
+and leave a group. Both report and block are shown in the recording.
 
 Paid content: Premium (Lifetime Unlock, or a monthly/yearly subscription)
 removes the ad banner and enables real-time push notifications and the app
@@ -561,7 +565,10 @@ reviewer token so what they see in the video matches what they get. Order:
 4. Reply to the ticket; log time.
 5. Hand off the ticket to Demo Colleague with a note.
 6. Chat: open the conversation with Demo Colleague, send a message, delete it
-   ("Message deleted"), then delete the conversation. Open a group, leave it.
+   ("Message deleted"). Long-press one of the colleague's messages: show
+   Report (the mail composer opens, cancel it) and Block (confirm, the
+   conversation closes). Settings > Chat > Blocked colleagues: unblock. Then
+   delete the conversation. Open a group, leave it.
 7. Settings: Premium — show the three products, buy Lifetime Unlock with a
    sandbox tester account (free); banner disappears, notifications toggle
    becomes available. Show Restore Purchases.
