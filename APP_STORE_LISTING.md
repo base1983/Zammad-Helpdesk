@@ -515,9 +515,13 @@ some unassigned. "Demo Colleague" is available in the chat and as a hand-off
 target. Web login for the same account, should you want to see the server
 side: reviewer@zammaddemo.world-ict.nl / <password in App Review Information>.
 
-Push notifications need a webhook trigger on the Zammad server; the app shows
-the exact URL to paste. On the demo server this is already configured for the
-reviewer account.
+Push notifications need a webhook trigger on the Zammad server that points at
+the per-device URL the app shows after enabling notifications (Premium). The
+trigger cannot be created ahead of time because that URL is generated on the
+device. If you want to see a push arrive, the demo server's admin login is
+<admin login in App Review Information>: Settings > Trigger > New, paste the
+URL from the app. The recording shows the full flow including a notification
+arriving.
 
 4. EXTERNAL SERVICES
 - The user's own Zammad server (self-hosted by the customer), via Zammad's
