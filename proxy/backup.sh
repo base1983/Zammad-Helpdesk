@@ -16,6 +16,8 @@
 # the failure mode this script exists to prevent.
 
 set -euo pipefail
+# Dumps hold every agent's push registration and the chat directory: 600, always.
+umask 077
 
 PROXY_DIR="${PROXY_DIR:-$(cd "$(dirname "$0")" && pwd)}"
 CONFIG="${CONFIG:-$PROXY_DIR/config.json}"
