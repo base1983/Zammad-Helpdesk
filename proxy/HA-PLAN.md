@@ -10,7 +10,7 @@ Kubernetes helps and where it just adds a second system to keep alive.
 
 | # | Risk | Effect | Notes |
 | --- | --- | --- | --- |
-| 1 | ~~No backups are known to exist~~ **Done (10 Sept):** nightly verified `mysqldump` at 03:15 via `backup.sh`, 30 days local; the host is imaged nightly by Veeam to an external location, which carries the dumps off-host | A Veeam image of a running MariaDB is crash-consistent only; the dump is the transactionally consistent, single-database restore path | Restore test passed 10 Sept (identical counts and schema, 0.2 s). Still open: a health-check ping so a silent stop is noticed, and confirming the dump runs *before* the Veeam job. |
+| 1 | ~~No backups are known to exist~~ **Done (10 Sept):** nightly verified `mysqldump` at 02:15 via `backup.sh`, 30 days local; the host is imaged nightly by Veeam to an external location, which carries the dumps off-host | A Veeam image of a running MariaDB is crash-consistent only; the dump is the transactionally consistent, single-database restore path | Restore test passed 10 Sept (identical counts and schema, 0.2 s). Still open: a health-check ping so a silent stop is noticed, and confirming the dump runs *before* the Veeam job. |
 | 2 | **DNS for `world-ict.nl` runs on the proxy host** (`ns1`/`ns2` → 85.10.150.95) | If web05 is down, *nothing* under the domain resolves — proxy, demo, the company site, mail. HA of the proxy is meaningless while this stands | Independent of any runtime choice. |
 | 3 | Single host, ~30 other vhosts, Passenger single process | Restart = seconds of 502; Plesk/OS update = minutes; hardware = hours-to-days | Deploys today are a `touch tmp/restart.txt` outage. |
 | 4 | No monitoring | Outages are discovered by users | The retention log is the only thing that writes anywhere. |
@@ -79,7 +79,7 @@ Ordered so that each step is shippable on its own, with rough effort.
 ### Phase 0 — stop the bleeding (½ day, no code)
 
 1. ~~**Nightly `mysqldump` of the proxy DB to off-host storage**~~ **Done**:
-   `proxy/backup.sh` from cron at 03:15, verified, 30-day local retention,
+   `proxy/backup.sh` from cron at 02:15 (Veeam images the host at 05:00), verified, 30-day local retention,
    picked up off-host by the nightly Veeam image of the whole host. The
    rclone channel in the script stays optional. **Restore test done 10 Sept**:
    the previous night's dump restored into `zammadproxy_restoretest` (own
