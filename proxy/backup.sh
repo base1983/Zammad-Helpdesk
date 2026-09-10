@@ -94,9 +94,11 @@ find "$BACKUP_DIR" -name 'proxy-*.sql.gz' -mtime "+$KEEP_DAYS" -print -delete | 
 
 # --- off-host --------------------------------------------------------------
 if [[ -n "$RCLONE_REMOTE" ]]; then
-    command -v rclone >/dev/null || fail "RCLONE_REMOTE set but rclone is not installed"
-    rclone copy "$OUT" "$RCLONE_REMOTE/" --quiet || fail "rclone copy failed"
-    rclone delete "$RCLONE_REMOTE/" --min-age "${REMOTE_KEEP_DAYS}d" --quiet || true
+    # No root on this host, so rclone lives in ~/bin — which cron's PATH lacks.
+    RCLONE="$(command -v rclone || true)"; [[ -x "$HOME/bin/rclone" ]] && RCLONE="$HOME/bin/rclone"
+    [[ -n "$RCLONE" ]] || fail "RCLONE_REMOTE set but rclone is not installed (expected ~/bin/rclone)"
+    "$RCLONE" copy "$OUT" "$RCLONE_REMOTE/" --quiet || fail "rclone copy failed"
+    "$RCLONE" delete "$RCLONE_REMOTE/" --min-age "${REMOTE_KEEP_DAYS}d" --quiet || true
     log "copied to $RCLONE_REMOTE"
 else
     log "no RCLONE_REMOTE set: dump is on this host only (fine for a first run, not as the end state)"
