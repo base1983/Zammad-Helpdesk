@@ -13,7 +13,7 @@ Kubernetes helps and where it just adds a second system to keep alive.
 | 1 | ~~No backups are known to exist~~ **Done (10 Sept):** nightly verified `mysqldump` at 03:15 via `backup.sh`, 30 days local; the host is imaged nightly by Veeam to an external location, which carries the dumps off-host | A Veeam image of a running MariaDB is crash-consistent only; the dump is the transactionally consistent, single-database restore path | Restore test passed 10 Sept (identical counts and schema, 0.2 s). Still open: a health-check ping so a silent stop is noticed, and confirming the dump runs *before* the Veeam job. |
 | 2 | **DNS for `world-ict.nl` runs on the proxy host** (`ns1`/`ns2` → 85.10.150.95) | If web05 is down, *nothing* under the domain resolves — proxy, demo, the company site, mail. HA of the proxy is meaningless while this stands | Independent of any runtime choice. |
 | 3 | Single host, ~30 other vhosts, Passenger single process | Restart = seconds of 502; Plesk/OS update = minutes; hardware = hours-to-days | Deploys today are a `touch tmp/restart.txt` outage. |
-| 4 | No monitoring | Outages are discovered by users | The retention log is the only thing that writes anywhere. |
+| 4 | No monitoring | Outages are discovered by users | `/readyz` deployed 10 Sept; UptimeRobot on it closes this. |
 | 5 | **Every agent's Zammad API token is stored in plaintext** in `registrations.zammadToken` — and the proxy never reads it | A database leak hands out write access to every customer's helpdesk | Pure liability. Drop the column. |
 | 6 | Schema migrations run in-process at boot (`initSchema()`) | Fine for one process; two replicas booting together race on `ALTER TABLE` | Blocks any multi-replica setup until moved to a job. |
 | 7 | Attachments as `LONGBLOB` in MariaDB (up to ~15 MB each) | Backups and replication carry gigabytes of ciphertext; DB is the scaling bottleneck | Belongs in object storage. |
@@ -87,9 +87,11 @@ Ordered so that each step is shippable on its own, with rough effort.
    ten-table schema identical to live. Repeat quarterly:
    `TARGET_USER=… TARGET_PASS=… ./restore.sh --into zammadproxy_restoretest <dump>`
    then `--verify`.
-2. **Uptime check** on `GET /api/chat/users` expecting 401 (that proves the
-   app, its auth middleware and the DB pool are alive) — Uptime Kuma,
-   Healthchecks.io, or Hetzner's own; alert to phone.
+2. **Uptime check** on `GET /readyz` expecting 200 (deployed 10 Sept — it
+   runs `SELECT 1` through the pool and answers 503 when the database is
+   gone; the old 401 from `/api/chat/users` never touched the database) —
+   UptimeRobot, 5-minute interval, alert to phone. Add `GET /` on the demo
+   host for the duration of an App Review.
 3. **Move DNS** for `world-ict.nl` to a real DNS provider (Hetzner DNS is free,
    Cloudflare too) or at minimum add a secondary NS on another host. Lower the
    TTL of `zammadproxy.world-ict.nl` to 300 s now — you will want that during
@@ -100,9 +102,10 @@ Ordered so that each step is shippable on its own, with rough effort.
 4. **Config from environment**, not `config.json`: `DB_*`, `APNS_KEY`
    (the `.p8` contents, base64), `APNS_KEY_ID`, `APNS_TEAM_ID`,
    `APNS_BUNDLE_ID`, `PORT`. Keep `config.json` as a fallback for one release.
-5. **`GET /healthz`** (process up) and **`GET /readyz`** (does `SELECT 1`
-   against the pool, and are the APNs providers constructed). Load balancers
-   and Kubernetes route only to ready replicas.
+5. ~~**`GET /healthz`** and **`GET /readyz`**~~ **Done 10 Sept** (pulled
+   forward for monitoring): `/healthz` = process up, `/readyz` = `SELECT 1`
+   through the pool plus APNs providers constructed, 503 otherwise. Load
+   balancers and Kubernetes route only to ready replicas.
 6. **Graceful shutdown**: on `SIGTERM` stop accepting, let in-flight requests
    finish (≤ 10 s), close the pool, exit 0. Today Passenger just kills it.
 7. **Structured JSON logs** with a request id; keep `console.log` lines but
