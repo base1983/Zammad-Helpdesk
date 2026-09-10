@@ -15,7 +15,11 @@
 #      landing mid-restore sees half a schema.
 #
 # Credentials come from config.json like backup.sh. The target database
-# defaults to the one in config.json; --into overrides it.
+# defaults to the one in config.json; --into overrides it. A Plesk database
+# user is bound to one database, so a scratch database usually has its own
+# user: pass it as TARGET_USER / TARGET_PASS in the environment and they are
+# used instead of the config.json credentials, e.g.
+#   TARGET_USER=restoretest TARGET_PASS='…' ./restore.sh --into zammadproxy_restoretest dump.sql.gz
 
 set -euo pipefail
 
@@ -45,6 +49,7 @@ PY
 )
 DB_HOST="${DB_HOST:-localhost}"; DB_PORT="${DB_PORT:-3306}"
 TARGET="${TARGET:-$DB_NAME}"
+if [[ -n "${TARGET_USER:-}" ]]; then DB_USER="$TARGET_USER"; DB_PASS="${TARGET_PASS:-}"; fi
 
 DEFAULTS="$(mktemp)"
 chmod 600 "$DEFAULTS"
