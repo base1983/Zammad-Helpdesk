@@ -115,6 +115,28 @@ async function sendChatPush(deviceToken, message) {
     return result;
 }
 
+// --- Health ---
+// /healthz: the process answers. /readyz: it can also reach the database,
+// which is what "up" has to mean for chat and push registration. Both are
+// unauthenticated and reveal nothing but a yes/no — for load balancers and
+// external uptime monitors. Anything but 200 on /readyz is an outage.
+app.get('/healthz', (req, res) => {
+    res.json({ ok: true });
+});
+app.get('/readyz', async (req, res) => {
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        await conn.query('SELECT 1');
+        res.json({ ok: true, db: 'up', apns: apnProviderProd ? 'configured' : 'missing' });
+    } catch (err) {
+        console.error('[Health] database check failed:', err.message);
+        res.status(503).json({ ok: false, db: 'down' });
+    } finally {
+        if (conn) conn.release();
+    }
+});
+
 // --- Chat router (engineer-to-engineer chat, see PROXY_CHAT_API.md) ---
 const createChatRouter = require('./chat');
 const chatRouter = createChatRouter({
