@@ -3,9 +3,11 @@
 # (optionally) copied off the host. Phase 0 of proxy/HA-PLAN.md.
 #
 # Runs on web05 as the subscription user, from cron:
-#   15 2 * * * cd /var/www/vhosts/world-ict.nl/zammadproxy.world-ict.nl && ./backup.sh >> /var/www/vhosts/world-ict.nl/backups/proxy/cron.log 2>&1
-# (02:15 — before retention.js at 03:30, so the dump still holds what it is
-# about to delete, and well before the 05:00 Veeam image of the host.)
+#   15 3 * * * cd /var/www/vhosts/world-ict.nl/zammadproxy.world-ict.nl && ./backup.sh >> /var/www/vhosts/world-ict.nl/backups/proxy/cron.log 2>&1
+# (03:15 — after the 02:00 Veeam image of the host, so the dump never runs
+# inside its snapshot, and before retention.js at 03:30, so it still holds
+# what retention is about to delete. Each dump reaches the off-host image the
+# following night.)
 #
 # Reads the database credentials from config.json next to server.js, so there
 # is nothing to configure for a plain local dump.
