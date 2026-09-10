@@ -8,8 +8,15 @@
 # whatever retention is about to delete.)
 #
 # Reads the database credentials from config.json next to server.js, so there
-# is nothing to configure for a plain local dump. Off-host copy and alerting
-# are switched on by environment variables, see "Optional" below.
+# is nothing to configure for a plain local dump.
+#
+# Off-host: the whole host is imaged nightly by Veeam to an external location,
+# and that image includes BACKUP_DIR. A Veeam image of a running MariaDB is
+# only crash-consistent; this dump is transactionally consistent and restores
+# as a single database in minutes — so the two complement each other. Run it
+# BEFORE the Veeam job so the day's dump is in the day's image. The rclone
+# copy below is an optional second channel, not a requirement. Alerting is
+# switched on by HEALTHCHECK_URL, see "Optional" below.
 #
 # Exit status is non-zero on any failure, and the failure is reported to the
 # health-check URL when one is set — a backup that silently stops running is
@@ -101,7 +108,7 @@ if [[ -n "$RCLONE_REMOTE" ]]; then
     "$RCLONE" delete "$RCLONE_REMOTE/" --min-age "${REMOTE_KEEP_DAYS}d" --quiet || true
     log "copied to $RCLONE_REMOTE"
 else
-    log "no RCLONE_REMOTE set: dump is on this host only (fine for a first run, not as the end state)"
+    log "no RCLONE_REMOTE set: off-host copy is left to the host-level (Veeam) backup"
 fi
 
 ping_hc ""

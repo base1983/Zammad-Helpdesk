@@ -10,7 +10,7 @@ Kubernetes helps and where it just adds a second system to keep alive.
 
 | # | Risk | Effect | Notes |
 | --- | --- | --- | --- |
-| 1 | **No backups are known to exist** for the proxy database | Total loss of chat history, group keys, attachments; every agent silently loses push until they re-enable it | RPO today is "whenever Plesk last backed up", if ever. Fix before anything else. |
+| 1 | ~~No backups are known to exist~~ **Done (10 Sept):** nightly verified `mysqldump` at 03:15 via `backup.sh`, 30 days local; the host is imaged nightly by Veeam to an external location, which carries the dumps off-host | A Veeam image of a running MariaDB is crash-consistent only; the dump is the transactionally consistent, single-database restore path | Still open: the restore test (needs a scratch DB from Plesk), a health-check ping so a silent stop is noticed, and confirming the dump runs *before* the Veeam job. |
 | 2 | **DNS for `world-ict.nl` runs on the proxy host** (`ns1`/`ns2` → 85.10.150.95) | If web05 is down, *nothing* under the domain resolves — proxy, demo, the company site, mail. HA of the proxy is meaningless while this stands | Independent of any runtime choice. |
 | 3 | Single host, ~30 other vhosts, Passenger single process | Restart = seconds of 502; Plesk/OS update = minutes; hardware = hours-to-days | Deploys today are a `touch tmp/restart.txt` outage. |
 | 4 | No monitoring | Outages are discovered by users | The retention log is the only thing that writes anywhere. |
@@ -78,9 +78,11 @@ Ordered so that each step is shippable on its own, with rough effort.
 
 ### Phase 0 — stop the bleeding (½ day, no code)
 
-1. **Nightly `mysqldump` of the proxy DB to off-host storage** (Hetzner
-   Storage Box / Backblaze), 30-day retention, and **restore it once** to
-   prove it works. Until this is done nothing else matters.
+1. ~~**Nightly `mysqldump` of the proxy DB to off-host storage**~~ **Done**:
+   `proxy/backup.sh` from cron at 03:15, verified, 30-day local retention,
+   picked up off-host by the nightly Veeam image of the whole host. The
+   rclone channel in the script stays optional. **Still to do: restore it
+   once** into a scratch database to prove it works.
 2. **Uptime check** on `GET /api/chat/users` expecting 401 (that proves the
    app, its auth middleware and the DB pool are alive) — Uptime Kuma,
    Healthchecks.io, or Hetzner's own; alert to phone.
