@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+
+# Xcode: per-user state, never shared
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+build/
+*.xcresult
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.swiftpm/
+.build/
+
+# Proxy (Node). Secrets live only on the server.
+proxy/node_modules/
+proxy/config.json
+proxy/*.p8
+proxy/*.log
+node_modules/
