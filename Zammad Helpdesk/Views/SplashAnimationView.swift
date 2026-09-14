@@ -10,7 +10,7 @@ struct SplashAnimationView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            Image("zammad_logoW")
+            Image("SplashLogo")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 200)
