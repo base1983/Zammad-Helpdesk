@@ -40,6 +40,16 @@ class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     }
     
     private func storeCredentials(from data: [String: Any]) {
+        // The phone sends empty strings when the user disconnects; drop our copy.
+        if let token = data["zammad_api_token"] as? String, token.isEmpty,
+           let serverURL = data["zammad_server_url"] as? String, serverURL.isEmpty {
+            SettingsManager.shared.clearAccountData()
+            DispatchQueue.main.async {
+                self.credentialsReceived = false
+            }
+            print("Phone disconnected — cleared credentials on Watch")
+            return
+        }
         guard let token = data["zammad_api_token"] as? String, !token.isEmpty,
               let serverURL = data["zammad_server_url"] as? String, !serverURL.isEmpty else {
             print("No valid credentials in received data")

@@ -19,6 +19,12 @@ class ReadStatusManager: ObservableObject {
         }
     }
     
+    /// Forgets all read markers (disconnect); ticket ids are per server.
+    func reset() {
+        UserDefaults.standard.removeObject(forKey: readTimestampsKey)
+        DispatchQueue.main.async { self.lastReadTicketID = nil }
+    }
+
     func isUnread(ticket: Ticket, currentUser: User?) -> Bool {
         guard let lastReadDate = readTimestamps[ticket.id] else {
             // If we've never read this ticket, it's unread if it's not a new ticket created by the user.

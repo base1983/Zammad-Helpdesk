@@ -71,6 +71,11 @@
 "select_pending_time" = "Selecteer wachttijd";
 "pending_time_title" = "Wachttijd";
 "settings" = "Instellingen";
+"disconnect" = "Verbinding verbreken";
+"disconnect_footer" = "Verwijdert het serveradres, de API-token, chatsleutels, concepten en opgeslagen berichten van dit apparaat en van je Apple Watch. Je Zammad-account en aankopen blijven bestaan.";
+"disconnect_confirm_title" = "Verbinding met deze server verbreken?";
+"disconnect_confirm_message" = "Om opnieuw te verbinden heb je het serveradres en een token of inloggegevens nodig.";
+"disconnect_confirm_button" = "Verbreken";
 "security" = "Beveiliging";
 "enable_biometric_lock" = "FaceID-slot inschakelen";
 "theme" = "Thema";

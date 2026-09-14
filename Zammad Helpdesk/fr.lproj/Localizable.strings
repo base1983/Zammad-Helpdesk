@@ -72,6 +72,11 @@
 "select_pending_time" = "Sélectionner l'heure d'attente";
 "pending_time_title" = "Temps d'attente";
 "settings" = "Paramètres";
+"disconnect" = "Se déconnecter";
+"disconnect_footer" = "Supprime l'adresse du serveur, le jeton API, les clés de chat, les brouillons et les messages en cache de cet appareil et de votre Apple Watch. Votre compte Zammad et vos achats ne sont pas affectés.";
+"disconnect_confirm_title" = "Se déconnecter de ce serveur ?";
+"disconnect_confirm_message" = "Pour vous reconnecter, il vous faudra l'adresse du serveur et un jeton ou des identifiants.";
+"disconnect_confirm_button" = "Se déconnecter";
 "security" = "Sécurité";
 "enable_biometric_lock" = "Activer le verrouillage FaceID";
 "theme" = "Thème";

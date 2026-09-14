@@ -90,7 +90,10 @@ struct TicketListContainerView: View {
             }
         }
         .sheet(isPresented: $isShowingSettings) {
-            SettingsView(onSave: { Task { await viewModel.refreshAllData() } })
+            SettingsView(
+                onSave: { Task { await viewModel.refreshAllData() } },
+                onDisconnect: { viewModel.reset() }
+            )
         }
         .sheet(isPresented: $isShowingCreateTicket, onDismiss: {
             Task { await viewModel.refreshAllData() }

@@ -76,6 +76,26 @@ class TicketViewModel: ObservableObject {
         searchedTickets = nil
     }
 
+    /// Drops everything loaded from the server (disconnect), so the next
+    /// account never sees the previous one's tickets or directory.
+    func reset() {
+        loadingTask?.cancel()
+        currentTickets = []
+        searchedTickets = nil
+        ticketStates = []
+        ticketPriorities = []
+        currentUser = nil
+        allUsers = []
+        roles = []
+        groups = []
+        organizations = []
+        timeAccountingTypes = []
+        isTimeAccountingEnabled = false
+        isLoading = false
+        errorMessage = nil
+        activeFilter = .myTickets
+    }
+
     private func loadData(filter: FilterType, isFullRefresh: Bool) async {
             loadingTask?.cancel()
             

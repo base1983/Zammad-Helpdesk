@@ -70,6 +70,11 @@
 "select_pending_time" = "Wartezeit auswählen";
 "pending_time_title" = "Wartezeit";
 "settings" = "Einstellungen";
+"disconnect" = "Verbindung trennen";
+"disconnect_footer" = "Entfernt Serveradresse, API-Token, Chat-Schlüssel, Entwürfe und zwischengespeicherte Nachrichten von diesem Gerät und deiner Apple Watch. Dein Zammad-Konto und deine Käufe bleiben erhalten.";
+"disconnect_confirm_title" = "Verbindung zu diesem Server trennen?";
+"disconnect_confirm_message" = "Zum erneuten Verbinden brauchst du die Serveradresse und ein Token oder Anmeldedaten.";
+"disconnect_confirm_button" = "Trennen";
 "security" = "Sicherheit";
 "enable_biometric_lock" = "FaceID-Sperre aktivieren";
 "theme" = "Thema";

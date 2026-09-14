@@ -52,6 +52,22 @@ class WatchConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
     
+    /// Disconnect: push an empty context so the watch drops its copy of the
+    /// credentials as soon as it wakes up. Empty strings, not a missing key —
+    /// the watch treats an empty context as "ask the phone again".
+    func clearCredentialsOnWatch() {
+        guard WCSession.default.activationState == .activated else { return }
+        do {
+            try WCSession.default.updateApplicationContext([
+                "zammad_api_token": "",
+                "zammad_server_url": ""
+            ])
+            print("Told Watch to forget credentials")
+        } catch {
+            print("Failed to clear credentials on Watch: \(error)")
+        }
+    }
+
     // MARK: - WCSessionDelegate
     
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {

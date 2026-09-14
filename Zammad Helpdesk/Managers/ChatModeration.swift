@@ -53,6 +53,12 @@ final class ChatBlockList: ObservableObject {
         persist()
     }
 
+    /// Chat user ids are per instance, so the list is meaningless after a disconnect.
+    func removeAll() {
+        blocked = []
+        persist()
+    }
+
     private func persist() {
         if let data = try? JSONEncoder().encode(blocked) {
             defaults.set(data, forKey: Self.key)

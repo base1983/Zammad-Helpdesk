@@ -260,6 +260,23 @@ class SettingsManager {
     // MARK: - Background Task Management
     func save(lastFetchDate: Date) { defaults.set(lastFetchDate, forKey: lastFetchDateKey) }
     func loadLastFetchDate() -> Date { defaults.object(forKey: lastFetchDateKey) as? Date ?? .distantPast }
+
+    // MARK: - Disconnect
+    /// Forgets the server and everything tied to the account on it: the API
+    /// token (Keychain and any legacy plaintext copy), the server URL, the
+    /// notification preference and the relay user id behind the webhook URL.
+    /// Appearance, purchases and the APNs device token stay — they belong to
+    /// the device, not the account.
+    func clearAccountData() {
+        KeychainHelper.delete(forKey: tokenKey)
+        defaults.removeObject(forKey: tokenKey)
+        UserDefaults.standard.removeObject(forKey: tokenKey)
+        defaults.removeObject(forKey: serverURLKey)
+        defaults.removeObject(forKey: realtimeNotificationsEnabledKey)
+        defaults.removeObject(forKey: proxyUserIDKey)
+        defaults.removeObject(forKey: lastFetchDateKey)
+        defaults.set(false, forKey: lockKey)
+    }
 }
 
 // LET OP: Ik heb de 'NotificationManager' class hier verwijderd.

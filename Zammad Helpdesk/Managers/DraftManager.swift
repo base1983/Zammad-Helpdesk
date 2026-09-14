@@ -52,6 +52,13 @@ final class DraftManager: ObservableObject {
         persist()
     }
 
+    /// Drops every draft (disconnect); reply text belongs to the account, not the device.
+    func deleteAll() {
+        drafts = [:]
+        try? FileManager.default.removeItem(at: storageURL)
+        NotificationCenter.default.post(name: .draftsChanged, object: nil)
+    }
+
     private func persist() {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

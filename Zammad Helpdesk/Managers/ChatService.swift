@@ -238,6 +238,13 @@ enum ChatCrypto {
         privateKey().publicKey.rawRepresentation.base64EncodedString()
     }
 
+    /// Drops this device's key pair and device id. The next registration
+    /// starts a fresh identity; messages wrapped for the old one stay sealed.
+    static func resetIdentity() {
+        KeychainHelper.delete(forKey: keychainKey)
+        KeychainHelper.delete(forKey: deviceIdKey)
+    }
+
     /// Whether a wire body is an encrypted payload (has the `enc1:` prefix).
     static func isEncrypted(_ body: String) -> Bool {
         body.hasPrefix(prefix)
@@ -400,6 +407,12 @@ final class ChatHistoryStore {
         return messages.filter { $0.createdAt >= cutoff }
     }
 
+    /// Deletes every cached conversation.
+    func clearAll() {
+        guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return }
+        for file in files { try? FileManager.default.removeItem(at: file) }
+    }
+
     /// Re-prunes all conversation files; called at app launch.
     func pruneAll() {
         guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return }
@@ -510,6 +523,15 @@ final class ChatService: ObservableObject {
             return "unknown"
         }
         return context.codingPath.map(\.stringValue).joined(separator: ".")
+    }
+
+    /// Forgets the session's chat identity and cached keys (disconnect).
+    func reset() {
+        myChatUserId = nil
+        myChatDeviceId = nil
+        myDevices = []
+        groupKeys = [:]
+        totalUnread = 0
     }
 
     // MARK: Registration & directory

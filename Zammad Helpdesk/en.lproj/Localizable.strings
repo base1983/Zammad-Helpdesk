@@ -92,6 +92,11 @@
 
 // MARK: - Settings
 "settings" = "Settings";
+"disconnect" = "Disconnect";
+"disconnect_footer" = "Removes the server address, API token, chat keys, drafts and cached messages from this device and from your Apple Watch. Your Zammad account and purchases are not affected.";
+"disconnect_confirm_title" = "Disconnect from this server?";
+"disconnect_confirm_message" = "You will need the server address and a token or login to connect again.";
+"disconnect_confirm_button" = "Disconnect";
 "security" = "Security";
 "enable_biometric_lock" = "Enable FaceID Lock";
 "theme" = "Theme";

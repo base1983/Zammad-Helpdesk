@@ -1,8 +1,11 @@
 import SwiftUI
 import StoreKit
+import UserNotifications
 
 struct SettingsView: View {
     let onSave: () -> Void
+    /// Called after a disconnect has wiped local state, before the wizard returns.
+    var onDisconnect: () -> Void = {}
     @Environment(\.dismiss) var dismiss
     
     private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
@@ -29,6 +32,11 @@ struct SettingsView: View {
     @State private var isShowingLoginSheet = false
     @State private var isShowingSSOSheet = false
 
+    // --- Disconnect ---
+    @AppStorage("is_setup_complete", store: Self.groupDefaults) private var isSetupComplete: Bool = false
+    @State private var isShowingDisconnectConfirm = false
+    @State private var isDisconnecting = false
+
     var body: some View {
         NavigationStack {
             Form {
@@ -49,9 +57,18 @@ struct SettingsView: View {
                 
                 // 5. Abonnementen
                 InAppPurchaseView()
+                
+                // 6. Verbinding verbreken
+                disconnectSection
             }
             .scrollContentBackground(.hidden)
             .background(Color.clear)
+            .confirmationDialog("disconnect_confirm_title".localized(), isPresented: $isShowingDisconnectConfirm, titleVisibility: .visible) {
+                Button("disconnect_confirm_button".localized(), role: .destructive) { disconnect() }
+                Button("cancel".localized(), role: .cancel) {}
+            } message: {
+                Text("disconnect_confirm_message".localized())
+            }
             .navigationTitle("settings".localized())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -276,6 +293,52 @@ struct SettingsView: View {
     }
 
     // MARK: - Actions
+    // MARK: - 6. Disconnect Section
+    private var disconnectSection: some View {
+        Section(footer: Text("disconnect_footer".localized())) {
+            Button(role: .destructive) {
+                isShowingDisconnectConfirm = true
+            } label: {
+                HStack {
+                    Label("disconnect".localized(), systemImage: "rectangle.portrait.and.arrow.right")
+                    if isDisconnecting {
+                        Spacer()
+                        ProgressView()
+                    }
+                }
+            }
+            .disabled(isDisconnecting)
+        }
+    }
+
+    /// Wipes every trace of the account from this device and the watch, then
+    /// returns to the setup wizard. Order matters: the relay is told to stop
+    /// pushing while we still hold the token that call authenticates with.
+    private func disconnect() {
+        guard !isDisconnecting else { return }
+        isDisconnecting = true
+        Task {
+            await NotificationProxyService.shared.updateRegistration(isSubscribing: false)
+
+            ChatService.shared.reset()
+            ChatHistoryStore.shared.clearAll()
+            ChatCrypto.resetIdentity()
+            ChatBlockList.shared.removeAll()
+            DraftManager.shared.deleteAll()
+            ReadStatusManager.shared.reset()
+            SettingsManager.shared.clearAccountData()
+            try? await UNUserNotificationCenter.current().setBadgeCount(0)
+
+            WatchConnectivityManager.shared.clearCredentialsOnWatch()
+            onDisconnect()
+
+            dismiss()
+            // Let the sheet slide away before the wizard replaces the view behind it.
+            try? await Task.sleep(for: .milliseconds(400))
+            isSetupComplete = false
+        }
+    }
+
     private func saveAndDismiss() {
         // Sla waarden expliciet op in SettingsManager voor de zekerheid
         SettingsManager.shared.save(serverURL: serverURL)
