@@ -61,6 +61,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C66E1D912F55D24100052620"
             BuildableName = "Zammad Helpdesk Watch App.app"
+            BlueprintName = "Zammad Helpdesk Watch App"
             ReferencedContainer = "container:Zammad Helpdesk.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -77,6 +78,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C66E1D912F55D24100052620"
             BuildableName = "Zammad Helpdesk Watch App.app"
+            BlueprintName = "Zammad Helpdesk Watch App"
             ReferencedContainer = "container:Zammad Helpdesk.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
