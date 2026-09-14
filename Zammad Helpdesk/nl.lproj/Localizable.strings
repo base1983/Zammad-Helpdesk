@@ -202,6 +202,11 @@
 "connection_successful" = "Verbinding geslaagd!";
 "connection_failed" = "Verbinding mislukt. Controleer uw URL en token.";
 "loading_products" = "Producten laden...";
+"products_unavailable" = "Er zijn nu geen producten beschikbaar.";
+"products_load_failed" = "Producten konden niet worden geladen:";
+"products_retry" = "Opnieuw proberen";
+"purchase_failed" = "Aankoop mislukt:";
+"purchase_pending" = "Aankoop wacht op goedkeuring.";
 "premium_user_message" = "Bedankt voor het ondersteunen van de app! Alle advertenties zijn verwijderd.";
 "purchase_failed" = "De aankoop kon niet worden voltooid. Probeer het opnieuw.";
 "purchase_successful" = "Aankoop geslaagd! Bedankt voor uw steun.";

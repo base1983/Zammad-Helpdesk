@@ -223,6 +223,11 @@
 "connection_successful" = "Connection successful!";
 "connection_failed" = "Connection failed. Please check your URL and token.";
 "loading_products" = "Loading products...";
+"products_unavailable" = "No products available right now.";
+"products_load_failed" = "Could not load products:";
+"products_retry" = "Try again";
+"purchase_failed" = "Purchase failed:";
+"purchase_pending" = "Purchase is awaiting approval.";
 "premium_user_message" = "Thank you for supporting the app! All ads have been removed.";
 "purchase_failed" = "The purchase could not be completed. Please try again.";
 "purchase_successful" = "Purchase successful! Thank you for your support.";

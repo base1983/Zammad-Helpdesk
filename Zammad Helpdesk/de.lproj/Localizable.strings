@@ -201,6 +201,11 @@
 "connection_successful" = "Verbindung erfolgreich!";
 "connection_failed" = "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihre URL und Ihr Token.";
 "loading_products" = "Produkte werden geladen...";
+"products_unavailable" = "Derzeit sind keine Produkte verfügbar.";
+"products_load_failed" = "Produkte konnten nicht geladen werden:";
+"products_retry" = "Erneut versuchen";
+"purchase_failed" = "Kauf fehlgeschlagen:";
+"purchase_pending" = "Kauf wartet auf Genehmigung.";
 "premium_user_message" = "Vielen Dank für die Unterstützung der App! Alle Anzeigen wurden entfernt.";
 "purchase_failed" = "Der Kauf konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.";
 "purchase_successful" = "Kauf erfolgreich! Vielen Dank für Ihre Unterstützung.";

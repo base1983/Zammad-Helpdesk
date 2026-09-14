@@ -13,11 +13,17 @@ class StoreManager: ObservableObject {
     @Published var isTransactionInProgress = false
     @Published var subscriptionGroupStatus: SubscriptionStatus?
     @Published var isLoadingProducts = false
+    /// Why the store section is empty or a purchase did not go through. Shown
+    /// in Settings so a TestFlight tester (or App Review) sees the cause
+    /// instead of a section with nothing to buy.
+    @Published var storeMessage: String?
 
     private let monthlyProductID = "com.baseonline.zammadmobile.premium.month"
     private let yearlyProductID = "com.baseonline.zammadmobile.premium.yearly"
     private let lifetimeProductID = "com.baseonline.zammadmobile.premium.lifetime"
     private var transactionListener: TransactionUpdateListener?
+
+    var hasProducts: Bool { monthlyProduct != nil || yearlyProduct != nil || lifetimeProduct != nil }
 
     init() {
         transactionListener = listenForTransactionUpdates()
@@ -34,34 +40,58 @@ class StoreManager: ObservableObject {
     }
 
     func fetchProducts() async {
+        let wanted = [monthlyProductID, yearlyProductID, lifetimeProductID]
         do {
-            let products = try await Product.products(for: [monthlyProductID, yearlyProductID, lifetimeProductID])
+            let products = try await Product.products(for: wanted)
             for product in products {
                 if product.id == monthlyProductID { monthlyProduct = product }
                 else if product.id == yearlyProductID { yearlyProduct = product }
                 else if product.id == lifetimeProductID { lifetimeProduct = product }
             }
+            let missing = wanted.filter { id in !products.contains { $0.id == id } }
+            if !missing.isEmpty {
+                // The App Store silently drops ids it cannot serve: not "Ready to
+                // Submit", missing localisation, unsigned Paid Apps agreement.
+                print("Store: products not returned by the App Store: \(missing)")
+            }
+            storeMessage = products.isEmpty ? "products_unavailable".localized() : nil
         } catch {
             print("Failed to fetch products: \(error)")
+            storeMessage = "products_load_failed".localized() + " " + error.localizedDescription
         }
+    }
+
+    /// Retry after a failed or empty load.
+    func reload() async {
+        isLoadingProducts = true
+        storeMessage = nil
+        await fetchProducts()
+        await checkEntitlements()
+        isLoadingProducts = false
     }
     
     func purchase(_ product: Product) async {
         isTransactionInProgress = true
+        storeMessage = nil
         do {
             let result = try await product.purchase()
             try await handlePurchaseResult(result)
+        } catch StoreKitError.userCancelled {
+            // Sheet dismissed; nothing to report.
         } catch {
             print("Purchase failed: \(error)")
+            storeMessage = "purchase_failed".localized() + " " + error.localizedDescription
         }
         isTransactionInProgress = false
     }
     
     func restorePurchases() async {
+        storeMessage = nil
         do {
             try await AppStore.sync()
         } catch {
             print("Failed to restore purchases: \(error)")
+            storeMessage = "purchase_failed".localized() + " " + error.localizedDescription
         }
         // Re-evaluate entitlements regardless of the sync outcome.
         await checkEntitlements()
@@ -106,8 +136,16 @@ class StoreManager: ObservableObject {
     }
     
     private func handlePurchaseResult(_ result: Product.PurchaseResult) async throws {
-        if case .success(let verification) = result {
+        switch result {
+        case .success(let verification):
             await handleTransactionVerification(verification)
+        case .pending:
+            // Ask to Buy or a pending SCA step; the transaction arrives via Transaction.updates.
+            storeMessage = "purchase_pending".localized()
+        case .userCancelled:
+            break
+        @unknown default:
+            break
         }
     }
     

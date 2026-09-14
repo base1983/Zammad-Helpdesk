@@ -203,6 +203,11 @@
 "connection_successful" = "Connexion réussie !";
 "connection_failed" = "Échec de la connexion. Veuillez vérifier votre URL et votre jeton.";
 "loading_products" = "Chargement des produits...";
+"products_unavailable" = "Aucun produit disponible pour le moment.";
+"products_load_failed" = "Impossible de charger les produits :";
+"products_retry" = "Réessayer";
+"purchase_failed" = "Achat échoué :";
+"purchase_pending" = "L'achat est en attente d'approbation.";
 "premium_user_message" = "Merci de soutenir l'application ! Toutes les publicités ont été supprimées.";
 "purchase_failed" = "L'achat n'a pas pu être finalisé. Veuillez réessayer.";
 "purchase_successful" = "Achat réussi ! Merci pour votre soutien.";

@@ -587,6 +587,17 @@ private struct InAppPurchaseView: View {
                 if let lifetime = storeManager.lifetimeProduct {
                     productButton(for: lifetime, description: "premium_description_lifetime".localized())
                 }
+                if let message = storeManager.storeMessage {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundColor(.red)
+                }
+                if !storeManager.hasProducts {
+                    Button("products_retry".localized()) {
+                        Task { await storeManager.reload() }
+                    }
+                    .font(.footnote)
+                }
             }
             
             if !areAdsRemoved && !storeManager.isLoadingProducts {
