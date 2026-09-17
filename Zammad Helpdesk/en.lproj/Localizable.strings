@@ -216,6 +216,12 @@
 "restore_purchases" = "Restore Purchases";
 "premium_description_monthly" = "Remove all ads and support future development with a monthly subscription.";
 "premium_description_yearly" = "Get the best value by removing all ads and supporting future development with a yearly subscription.";
+"subscription_terms" = "Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Payment is charged to your Apple ID account; manage or cancel in your App Store account settings.";
+"terms_of_use" = "Terms of Use";
+"privacy_policy" = "Privacy Policy";
+"billing_per_month" = "per month";
+"billing_per_year" = "per year";
+"billing_per_week" = "per week";
 "server_configuration" = "Server Configuration";
 "token_permission_info" = "Please create a token with at least 'ticket.agent' rights.";
 "test_connection" = "Test Connection";

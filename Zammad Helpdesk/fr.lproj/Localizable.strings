@@ -196,6 +196,12 @@
 "restore_purchases" = "Restaurer les achats";
 "premium_description_monthly" = "Supprimez toutes les publicités et soutenez le développement futur avec un abonnement mensuel.";
 "premium_description_yearly" = "Obtenez le meilleur rapport qualité-prix en supprimant toutes les publicités et en soutenant le développement futur avec un abonnement annuel.";
+"subscription_terms" = "Les abonnements se renouvellent automatiquement, sauf annulation au moins 24 heures avant la fin de la période en cours. Le paiement est débité de votre compte Apple ID ; gérez ou annulez dans les réglages de votre compte App Store.";
+"terms_of_use" = "Conditions d'utilisation";
+"privacy_policy" = "Politique de confidentialité";
+"billing_per_month" = "par mois";
+"billing_per_year" = "par an";
+"billing_per_week" = "par semaine";
 "server_configuration" = "Configuration du serveur";
 "token_permission_info" = "Veuillez créer un jeton avec au moins les droits 'ticket.agent'.";
 "test_connection" = "Tester la connexion";

@@ -194,6 +194,12 @@
 "restore_purchases" = "Käufe wiederherstellen";
 "premium_description_monthly" = "Entfernen Sie alle Anzeigen und unterstützen Sie die zukünftige Entwicklung mit einem monatlichen Abonnement.";
 "premium_description_yearly" = "Holen Sie sich den besten Wert, indem Sie alle Anzeigen entfernen und die zukünftige Entwicklung mit einem jährlichen Abonnement unterstützen.";
+"subscription_terms" = "Abonnements verlängern sich automatisch, sofern sie nicht mindestens 24 Stunden vor Ablauf des laufenden Zeitraums gekündigt werden. Die Abrechnung erfolgt über Ihren Apple-ID-Account; verwalten oder kündigen können Sie sie in den Account-Einstellungen des App Store.";
+"terms_of_use" = "Nutzungsbedingungen";
+"privacy_policy" = "Datenschutzrichtlinie";
+"billing_per_month" = "pro Monat";
+"billing_per_year" = "pro Jahr";
+"billing_per_week" = "pro Woche";
 "server_configuration" = "Serverkonfiguration";
 "token_permission_info" = "Bitte erstellen Sie ein Token mit mindestens 'ticket.agent'-Rechten.";
 "test_connection" = "Verbindung testen";

@@ -563,6 +563,9 @@ private struct InAppPurchaseView: View {
     private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
     @AppStorage("are_ads_removed", store: Self.groupDefaults) private var areAdsRemoved: Bool = false
     @ObservedObject private var adConsent = AdConsentManager.shared
+    /// Apple's standard EULA; the same link is in the App Store description.
+    private static let termsOfUseURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+    private static let privacyPolicyURL = URL(string: "https://base1983.github.io/Zammad-Helpdesk/privacy.html")!
 
     var body: some View {
         Section(header: Text("in_app_purchases".localized())) {
@@ -607,6 +610,23 @@ private struct InAppPurchaseView: View {
                 .font(.footnote)
             }
 
+            // Guideline 3.1.2: a paywall with auto-renewable subscriptions
+            // must state how renewal works and link to the Terms of Use and
+            // the privacy policy. Shown to premium users too, so the links
+            // stay reachable after purchase.
+            VStack(alignment: .leading, spacing: 6) {
+                if !areAdsRemoved {
+                    Text("subscription_terms".localized())
+                }
+                HStack(spacing: 12) {
+                    Link("terms_of_use".localized(), destination: Self.termsOfUseURL)
+                    Text("·")
+                    Link("privacy_policy".localized(), destination: Self.privacyPolicyURL)
+                }
+            }
+            .font(.footnote)
+            .foregroundColor(.secondary)
+
             // Google's consent policy requires a lasting way to change the ad
             // consent choice. UMP only asks for one where a form applies, so
             // the row appears exactly when it is required — and never for
@@ -634,15 +654,33 @@ private struct InAppPurchaseView: View {
                         .foregroundColor(.secondary)
                 }
                 Spacer()
-                Text(product.displayPrice)
-                    .fontWeight(.bold)
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 10)
-                    .background(Color.blue.opacity(0.1))
-                    .cornerRadius(8)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(product.displayPrice)
+                        .fontWeight(.bold)
+                    if let period = billingPeriod(for: product) {
+                        Text(period)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 10)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(8)
             }
             .foregroundColor(.primary)
             .padding(.vertical, 4)
+        }
+    }
+
+    /// "per month" / "per year" for subscriptions, nil for the lifetime unlock.
+    private func billingPeriod(for product: Product) -> String? {
+        guard let period = product.subscription?.subscriptionPeriod else { return nil }
+        switch (period.unit, period.value) {
+        case (.month, 1): return "billing_per_month".localized()
+        case (.year, 1): return "billing_per_year".localized()
+        case (.week, 1): return "billing_per_week".localized()
+        default: return nil
         }
     }
 }

@@ -111,8 +111,11 @@ BUILT FOR THE WAY YOU WORK
 PRIVACY AND SECURITY
 Your tickets stay between your device and your own Zammad server — there is no account to create and no middleman for your helpdesk data. Your API token is stored on your device. Chat messages are end-to-end encrypted, so the relay used to deliver them only ever holds ciphertext.
 
-FREE, WITH AN OPTIONAL UNLOCK
-The app is free and ad-supported. A one-time Lifetime Unlock removes all ads, enables real-time notifications and the icon badge, and supports continued development. No subscription, no recurring charge.
+FREE, WITH AN OPTIONAL PREMIUM UNLOCK
+The app is free and ad-supported. Premium removes all ads, enables real-time notifications and the icon badge, and supports continued development. Choose a monthly or yearly auto-renewing subscription, or a one-time Lifetime Unlock with no recurring charge.
+Subscriptions are charged to your Apple ID account when you confirm the purchase and renew automatically unless you cancel at least 24 hours before the end of the current period. You can manage or cancel them in your App Store account settings.
+Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+Privacy Policy: https://base1983.github.io/Zammad-Helpdesk/privacy.html
 
 REQUIREMENTS
 • A reachable Zammad installation (self-hosted or cloud)
@@ -210,8 +213,11 @@ GEMAAKT VOOR UW MANIER VAN WERKEN
 PRIVACY EN BEVEILIGING
 Uw tickets blijven tussen uw toestel en uw eigen Zammad-server — u hoeft geen account aan te maken en er zit geen tussenpartij op uw helpdeskgegevens. Uw API-token wordt op uw toestel bewaard. Chatberichten zijn end-to-end versleuteld, zodat de server die ze aflevert alleen versleutelde tekst in handen heeft.
 
-GRATIS, MET OPTIONELE ONTGRENDELING
-De app is gratis en wordt ondersteund door advertenties. Met de eenmalige Lifetime-ontgrendeling verdwijnen alle advertenties, krijgt u realtime meldingen en de badge, en steunt u de verdere ontwikkeling. Geen abonnement, geen terugkerende kosten.
+GRATIS, MET OPTIONELE PREMIUM-ONTGRENDELING
+De app is gratis en wordt ondersteund door advertenties. Met Premium verdwijnen alle advertenties, krijgt u realtime meldingen en de badge, en steunt u de verdere ontwikkeling. Kies een maandelijks of jaarlijks abonnement dat automatisch wordt verlengd, of de eenmalige Lifetime-ontgrendeling zonder terugkerende kosten.
+Abonnementen worden bij bevestiging van de aankoop via uw Apple ID-account afgerekend en automatisch verlengd, tenzij u ze minimaal 24 uur voor het einde van de lopende periode opzegt. Beheren of opzeggen doet u in de accountinstellingen van de App Store.
+Gebruiksvoorwaarden (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+Privacybeleid: https://base1983.github.io/Zammad-Helpdesk/privacy.html
 
 VEREISTEN
 • Een bereikbare Zammad-installatie (self-hosted of cloud)
@@ -299,8 +305,11 @@ FÜR IHREN ARBEITSALLTAG GEBAUT
 DATENSCHUTZ UND SICHERHEIT
 Ihre Tickets bleiben zwischen Ihrem Gerät und Ihrem eigenen Zammad-Server — kein Konto, keine Zwischenstation für Ihre Helpdesk-Daten. Ihr API-Token wird auf dem Gerät gespeichert. Chat-Nachrichten sind Ende-zu-Ende-verschlüsselt, sodass der zustellende Server ausschließlich verschlüsselten Text sieht.
 
-KOSTENLOS, MIT OPTIONALER FREISCHALTUNG
-Die App ist kostenlos und werbefinanziert. Die einmalige Lifetime-Freischaltung entfernt alle Werbung, aktiviert Echtzeit-Benachrichtigungen samt Symbolkennzeichen und unterstützt die Weiterentwicklung. Kein Abo, keine wiederkehrenden Kosten.
+KOSTENLOS, MIT OPTIONALER PREMIUM-FREISCHALTUNG
+Die App ist kostenlos und werbefinanziert. Premium entfernt alle Werbung, aktiviert Echtzeit-Benachrichtigungen samt Symbolkennzeichen und unterstützt die Weiterentwicklung. Wählen Sie ein monatliches oder jährliches Abonnement mit automatischer Verlängerung oder die einmalige Lifetime-Freischaltung ohne wiederkehrende Kosten.
+Abonnements werden bei Kaufbestätigung über Ihren Apple-ID-Account abgerechnet und verlängern sich automatisch, sofern sie nicht mindestens 24 Stunden vor Ablauf des laufenden Zeitraums gekündigt werden. Verwalten oder kündigen können Sie sie in den Account-Einstellungen des App Store.
+Nutzungsbedingungen (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+Datenschutzrichtlinie: https://base1983.github.io/Zammad-Helpdesk/privacy.html
 
 VORAUSSETZUNGEN
 • Eine erreichbare Zammad-Installation (selbst gehostet oder Cloud)
@@ -388,8 +397,11 @@ PENSÉE POUR VOTRE FAÇON DE TRAVAILLER
 CONFIDENTIALITÉ ET SÉCURITÉ
 Vos tickets restent entre votre appareil et votre propre serveur Zammad : aucun compte à créer, aucun intermédiaire sur vos données. Votre jeton d'API est conservé sur votre appareil. Les messages sont chiffrés de bout en bout : le serveur qui les achemine ne détient que du texte chiffré.
 
-GRATUIT, AVEC UN DÉBLOCAGE FACULTATIF
-L'application est gratuite et financée par la publicité. Le déblocage à vie, en un seul achat, supprime toute publicité, active les notifications en temps réel et la pastille, et soutient le développement. Sans abonnement ni frais récurrents.
+GRATUIT, AVEC UN DÉBLOCAGE PREMIUM FACULTATIF
+L'application est gratuite et financée par la publicité. Premium supprime toute publicité, active les notifications en temps réel et la pastille, et soutient le développement. Choisissez un abonnement mensuel ou annuel à renouvellement automatique, ou le déblocage à vie en un seul achat, sans frais récurrents.
+Les abonnements sont facturés sur votre compte Apple ID à la confirmation de l'achat et se renouvellent automatiquement, sauf annulation au moins 24 heures avant la fin de la période en cours. Vous pouvez les gérer ou les annuler dans les réglages de votre compte App Store.
+Conditions d'utilisation (CLUF) : https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+Politique de confidentialité : https://base1983.github.io/Zammad-Helpdesk/privacy.html
 
 CONFIGURATION REQUISE
 • Une installation Zammad accessible (auto-hébergée ou dans le cloud)
@@ -697,7 +709,8 @@ you want a preview in a later release, re-record 15-30 seconds and transcode to 
 | Secondary category | Business |
 | Age rating | 4+ |
 | Price | Free, with In-App Purchase |
-| In-App Purchase | Lifetime Unlock — one-time, non-consumable |
+| In-App Purchases | Lifetime Unlock — one-time, non-consumable; Monthly and Year subscription — auto-renewable, one subscription group |
+| Terms of Use (EULA) | Standard Apple EULA, so **no custom EULA in App Store Connect** — instead the link `https://www.apple.com/legal/internet-services/itunes/dev/stdeula/` sits in the Description of every localisation (required by Guideline 3.1.2 for auto-renewable subscriptions; its absence bounced the 1.2.1 submission on 17 Sept 2026) |
 | Copyright | 2026 World ICT |
 | Support URL | `https://base1983.github.io/Zammad-Helpdesk/` — `docs/index.html`, served by GitHub Pages from `main`/`docs`; same URL in all four localisations |
 | Marketing URL | optional |
@@ -797,6 +810,15 @@ Real issues found in the project that affect this submission:
     submitting: sign "Demo Colleague" into the app from your own phone once, so the
     reviewer has a chat contact (see `demo-server/README.md`). The instance has to stay
     reachable for the whole review; `systemctl status zammad` on web05 is the check.
+
+12. ~~**Terms of Use link missing.**~~ **Done in the copy above.** Apps with auto-renewable
+    subscriptions must link to the Terms of Use from the product page (Guideline 3.1.2). With the
+    standard Apple EULA that means the link in the Description; App Store Connect's EULA field is
+    only for a custom one. The description of all four localisations now ends the Premium
+    paragraph with the Terms of Use and Privacy Policy links and the auto-renewal wording — paste
+    the whole field again, then resubmit; no new build is needed for this rejection. The in-app
+    paywall (`SettingsView` → In-App Purchases) shows the same two links and the billing period,
+    which is what the same guideline asks of the app itself.
 
 11. **Disclaimer placement.** Keep the unofficial notice in the *second paragraph* of the
    description, not buried at the bottom. The App Store truncates after roughly three
