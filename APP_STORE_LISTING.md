@@ -511,6 +511,14 @@ removes the ad banner and enables real-time push notifications and the app
 icon badge. All three products are shown and the sandbox purchase is in the
 recording.
 
+Subscription information (Guideline 3.1.2): Settings > In-App Purchases
+shows each subscription's title, price and billing period ("per month" /
+"per year"), the auto-renewal terms, and functional links to the Terms of
+Use (standard Apple EULA, https://www.apple.com/legal/internet-services/itunes/dev/stdeula/)
+and the privacy policy (https://base1983.github.io/Zammad-Helpdesk/privacy.html).
+The same two links are in the App Description, and the EULA is also attached
+under App Information > License Agreement.
+
 2. PURPOSE AND AUDIENCE
 Helpdesk for Zammad is an independent mobile client for Zammad, an open-source
 helpdesk / ticketing system that companies run on their own servers. Its users
@@ -818,7 +826,9 @@ Real issues found in the project that affect this submission:
     paragraph with the Terms of Use and Privacy Policy links and the auto-renewal wording — paste
     the whole field again, then resubmit; no new build is needed for this rejection. The in-app
     paywall (`SettingsView` → In-App Purchases) shows the same two links and the billing period,
-    which is what the same guideline asks of the app itself.
+    which is what the same guideline asks of the app itself. Build 10019 shipped without that
+    paywall change and was bounced for it on 19 Sept 2026 (3.1.2(c)); the first build after
+    d597faa carries it, and the review notes above now say where the reviewer finds it.
 
 11. **Disclaimer placement.** Keep the unofficial notice in the *second paragraph* of the
    description, not buried at the bottom. The App Store truncates after roughly three
