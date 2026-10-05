@@ -454,9 +454,13 @@ Agent-to-agent chat is end-to-end encrypted with Apple CryptoKit (Curve25519 key
 + ChaChaPoly). The relay only ever stores ciphertext.
 
 IN-APP PURCHASE
-"Lifetime Unlock" (com.baseonline.zammadmobile.premium.lifetime) is a one-time
-non-consumable that removes ads and enables real-time notifications and the icon badge.
-It can be tested in the sandbox; Restore Purchases is in Settings.
+All three In-App Purchases (monthly and yearly auto-renewing subscription, and the
+one-time non-consumable "Lifetime Unlock", com.baseonline.zammadmobile.premium.lifetime)
+are shown on step 2 ("Go Premium") of the setup wizard, immediately after the server
+step and BEFORE any login is needed. The same paywall is in Settings (gear icon on the
+ticket list) > In-App Purchases. Premium removes ads and enables real-time notifications
+and the icon badge. All purchases can be tested in the sandbox; Restore Purchases is on
+both screens. There are no storefront, region or device restrictions.
 
 TRADEMARK
 The app is named "Helpdesk for Zammad". The Zammad name is used only descriptively, in
@@ -600,6 +604,50 @@ messages you sent in the recording would be unreadable on it.
 
 The 8-second clip in `Screenshots/` is an App Preview draft, not this.
 
+---
+
+## 8c. Reply to "Guideline 2.1(b) — cannot locate the In-App Purchases" (23 Sept 2026)
+
+The rejected build only showed the paywall in Settings, which is reachable
+only after a completed server login — the reviewer never got there. The fix
+(this build) moves the paywall into the setup wizard as step 2, before any
+login. Submit a new build and paste the text below as the reply.
+
+**Before replying, verify in App Store Connect:** (1) the Paid Apps Agreement
+shows "Active" under Business; (2) all three IAPs are "Ready to Submit" or
+"Approved" AND are attached to this app version (Version page > In-App
+Purchases and Subscriptions); an unattached IAP is invisible to the reviewer
+no matter what the app shows.
+
+```
+Thank you for the review. The In-App Purchases were previously only visible in
+Settings, which requires a completed server login first — we understand that
+made them hard to locate. Build <NEW BUILD NUMBER> moves them to the front:
+
+STEPS TO LOCATE THE IN-APP PURCHASES
+1. Launch the app; the setup wizard opens.
+2. Tap "Next" (or swipe) to step 2, "Go Premium". This step shows all three
+   In-App Purchases — the monthly and yearly auto-renewing subscriptions and
+   the one-time "Lifetime Unlock" — with localized prices, billing periods,
+   purchase buttons, Restore Purchases, the auto-renewal terms and links to
+   the Terms of Use and privacy policy. No account or server is needed to
+   reach this screen.
+3. The same paywall is also available later under Settings (gear icon on the
+   ticket list) > In-App Purchases.
+
+The purchases are configured for the Apple-provided sandbox environment and
+have been bought successfully with a sandbox tester account. They are not
+restricted by storefront, region, device configuration or account type; every
+user sees them. The Paid Apps Agreement is accepted and active in App Store
+Connect.
+
+For full app functionality after the paywall step, the demo account from the
+App Review notes is available: https://zammaddemo.world-ict.nl with the API
+token provided there.
+```
+
+---
+
 ## 9. Screenshots and app preview
 
 ### What is in `Screenshots/`
@@ -721,7 +769,8 @@ you want a preview in a later release, re-record 15-30 seconds and transcode to 
 | Terms of Use (EULA) | Standard Apple EULA, so **no custom EULA in App Store Connect** — instead the link `https://www.apple.com/legal/internet-services/itunes/dev/stdeula/` sits in the Description of every localisation (required by Guideline 3.1.2 for auto-renewable subscriptions; its absence bounced the 1.2.1 submission on 17 Sept 2026) |
 | Copyright | 2026 World ICT |
 | Support URL | `https://base1983.github.io/Zammad-Helpdesk/` — `docs/index.html`, served by GitHub Pages from `main`/`docs`; same URL in all four localisations |
-| Marketing URL | optional |
+| Marketing URL | `https://base1983.github.io/Zammad-Helpdesk/` from the next version on (still empty in 1.2.1, see §11 item 12). It must stay on `base1983.github.io`, because `app-ads.txt` lives there |
+| `app-ads.txt` (AdMob) | `https://base1983.github.io/app-ads.txt`, from the separate repo `base1983/base1983.github.io` (GitHub Pages user site, `main` / root), **not** this repo's `docs/`. AdMob looks for it at the root of the developer website's domain, which is the Marketing URL's host (see §11 item 12). Content is the single line `google.com, pub-7428603098298858, DIRECT, f08c47fec0942fa0`. Live and verified with curl on 5 Oct 2026 |
 | Privacy Policy URL | `https://base1983.github.io/Zammad-Helpdesk/privacy.html` — `docs/privacy.html`; lives under App Information, not on the version page |
 
 ---
@@ -834,3 +883,14 @@ Real issues found in the project that affect this submission:
    description, not buried at the bottom. The App Store truncates after roughly three
    lines on the product page, but reviewers read the whole field — having it high up is
    what defuses a 5.2.1 question before it is asked.
+
+12. **Fill in the Marketing URL** (version page, all four localisations):
+   `https://base1983.github.io/Zammad-Helpdesk/`. As of 5 Oct 2026 it is empty, so
+   Apple's lookup API returns `sellerUrl: null` and the App Store shows no developer
+   website. AdMob then had no developer domain to read `app-ads.txt` from and reported "no
+   app-ads.txt found" ([§10](#10-store-metadata-checklist)). We cannot host the file on
+   `world-ict.nl`, so the developer domain has to be `base1983.github.io`.
+
+13. **Privacy Policy URL is not what §10 says.** On the live 1.2.1 product page it points
+   to `https://www.world-ict.nl`, not `https://base1983.github.io/Zammad-Helpdesk/privacy.html`.
+   Correct it under App Information.
