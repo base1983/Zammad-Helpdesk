@@ -55,6 +55,11 @@ enum KeychainHelper {
 
 /// Een gedeelde manager voor algemene instellingen en status.
 
+/// The two appearance modes a background can be chosen for.
+enum WallpaperMode: String {
+    case light, dark
+}
+
 enum ColorSchemeOption: String, CaseIterable, Identifiable {
     case system, light, dark
     var id: Self { self }
@@ -79,17 +84,35 @@ enum BackgroundOption: String, CaseIterable, Identifiable {
     case pastelBlue, pastelPink, pastelGreen, pastelSand
     // Solid colors — dark
     case midnight, charcoal, forest, plum
+    // The user's own photo, one per appearance mode (file managed by
+    // CustomWallpaperStore on iOS).
+    case customLight, customDark
 
     var id: Self { self }
 
     enum Style {
         case image(String)
         case color(Color)
+        /// A photo the user picked; the renderer asks CustomWallpaperStore
+        /// for the file and falls back to the mode's default when it is gone.
+        case custom(WallpaperMode)
     }
 
-    /// What to render: an asset catalog image or a solid color.
+    /// The custom-photo option for an appearance mode.
+    static func custom(for mode: WallpaperMode) -> BackgroundOption {
+        mode == .dark ? .customDark : .customLight
+    }
+
+    /// What a mode shows when nothing (valid) has been chosen.
+    static func defaultOption(for mode: WallpaperMode) -> BackgroundOption {
+        mode == .dark ? .pebbles : .flowers
+    }
+
+    /// What to render: an asset catalog image, a solid color, or the user's photo.
     var style: Style {
         switch self {
+        case .customLight: .custom(.light)
+        case .customDark: .custom(.dark)
         case .flowers: .image("WallpaperFlowers")
         case .desert: .image("WallpaperDesert")
         case .meadow: .image("WallpaperMeadow")
@@ -120,12 +143,13 @@ enum BackgroundOption: String, CaseIterable, Identifiable {
     var previewStyle: Style {
         switch style {
         case .image(let name): .image(name + "Thumb")
-        case .color: style
+        case .color, .custom: style
         }
     }
 
     var localizedString: String {
         switch self {
+        case .customLight, .customDark: "wallpaper_custom".localized()
         case .flowers: "wallpaper_flowers".localized()
         case .desert: "wallpaper_desert".localized()
         case .meadow: "wallpaper_meadow".localized()

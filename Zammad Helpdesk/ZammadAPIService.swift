@@ -519,6 +519,27 @@ class ZammadAPIService {
             }
         }
 
+        // MARK: - Tags
+
+        /// Adds a tag to a ticket (`POST /api/v1/tags/add`). Zammad answers
+        /// with an empty 200/201 body, so nothing is decoded. Adding a tag
+        /// that is already present is a no-op on the server.
+        func addTag(ticketId: Int, tag: String) async throws {
+            var request = try createRequest(for: "tags/add", method: "POST")
+            let body: [String: Any] = [
+                "object": "Ticket",
+                "o_id": ticketId,
+                "item": tag
+            ]
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+            if httpResponse.statusCode == 401 { throw APIError.authenticationFailed }
+            guard (200...299).contains(httpResponse.statusCode) else {
+                throw APIError.serverError(statusCode: httpResponse.statusCode, message: String(data: data, encoding: .utf8))
+            }
+        }
+
         // MARK: - Attachments
         func downloadAttachment(ticketId: Int, articleId: Int, attachment: Attachment) async throws -> URL {
             let endpoint = "ticket_attachment/\(ticketId)/\(articleId)/\(attachment.id)"

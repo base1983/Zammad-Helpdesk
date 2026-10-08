@@ -57,6 +57,14 @@
 "status_new" = "New";
 "status_pending_reminder" = "Pending Reminder";
 "status_closed" = "Closed";
+
+/* Close & tag as spam (mirrors Zammad's built-in macro) */
+"close_as_spam" = "Close & tag as spam";
+"spam" = "Spam";
+"close_as_spam_confirm_title" = "Close this ticket and tag it as spam?";
+"close_as_spam_confirm_message" = "The ticket gets the tag \"spam\" and its state is set to Closed, like Zammad's \"Close & Tag as Spam\" macro.";
+"close_as_spam_failed" = "Could not close the ticket as spam.";
+"close_as_spam_no_closed_state" = "No \"closed\" ticket state was found on this server.";
 "status_merged" = "Merged";
 "status_pending_close" = "Pending Close";
 
@@ -130,6 +138,11 @@
 "color_charcoal" = "Charcoal";
 "color_forest" = "Forest";
 "color_plum" = "Plum";
+"wallpaper_custom" = "Your photo";
+"custom_wallpaper_section" = "Your own photo";
+"choose_photo" = "Choose a photo…";
+"change_photo" = "Change photo";
+"remove_photo" = "Remove photo";
 "premium_description_lifetime" = "One-time purchase. Premium forever.";
 "notifications_premium_required" = "Real-time notifications and the app icon badge are Premium features. Unlock them with a subscription or the lifetime purchase below.";
 "handoff_ticket" = "Hand off ticket";
@@ -337,3 +350,8 @@
 "chat_user_blocked" = "You have blocked this colleague. Unblock them in Settings to send messages.";
 "chat_report_mail_unavailable" = "No e-mail account is set up on this device. Send your report to %@.";
 "chat_report_subject" = "Report: chat content in Helpdesk for Zammad";
+
+/* Setup wizard: Premium step */
+"premium_step_title" = "Go Premium";
+"premium_step_message" = "Optional: Premium removes all ads and unlocks real-time notifications and the app icon badge. Subscribe or buy the lifetime unlock now, or later in Settings.";
+"notifications_premium_wizard_hint" = "Real-time notifications and the app icon badge are Premium features. Go back one step to unlock Premium, or do it later in Settings.";

@@ -15,6 +15,9 @@ struct TicketDetailView: View {
     @State private var isShowingReplySheet = false
     @State private var isShowingTimeSheet = false
     @State private var isShowingHandoffSheet = false
+    @State private var isConfirmingSpam = false
+    @State private var isClosingAsSpam = false
+    @State private var spamError: String?
     @State private var isShowingCustomerSearch = false
     @State private var optionalCustomerId: Int? = nil
     @State private var showPendingTimePicker = false
@@ -66,10 +69,36 @@ struct TicketDetailView: View {
                     Button(action: { isShowingHandoffSheet = true }) { Image(systemName: "person.2") }
                     Button(action: { isShowingEditSheet = true }) { Image(systemName: "square.and.pencil") }
                     Button(action: { isShowingReplySheet = true }) { Image(systemName: "arrowshape.turn.up.left") }
+                    Menu {
+                        Button(role: .destructive) {
+                            isConfirmingSpam = true
+                        } label: {
+                            Label("close_as_spam".localized(), systemImage: "xmark.bin")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                    }
+                    .disabled(isClosingAsSpam)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             }
+        }
+        .confirmationDialog("close_as_spam_confirm_title".localized(), isPresented: $isConfirmingSpam, titleVisibility: .visible) {
+            Button("close_as_spam".localized(), role: .destructive) {
+                Task { await closeAsSpam() }
+            }
+            Button("cancel".localized(), role: .cancel) {}
+        } message: {
+            Text("close_as_spam_confirm_message".localized())
+        }
+        .alert("close_as_spam_failed".localized(), isPresented: Binding(
+            get: { spamError != nil },
+            set: { if !$0 { spamError = nil } }
+        )) {
+            Button("ok".localized(), role: .cancel) {}
+        } message: {
+            Text(spamError ?? "")
         }
         .sheet(isPresented: $isShowingEditSheet) {
             if let ticketBinding = Binding($ticket) {
@@ -374,6 +403,21 @@ struct TicketDetailView: View {
         }
     }
     
+    /// Tags the ticket as spam and closes it; on success the ticket has left
+    /// the open queue, so leave the detail screen too.
+    private func closeAsSpam() async {
+        guard let ticket, !isClosingAsSpam else { return }
+        isClosingAsSpam = true
+        defer { isClosingAsSpam = false }
+        do {
+            try await viewModel.closeAsSpam(ticket)
+            dismiss()
+        } catch {
+            spamError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            await loadDetails()
+        }
+    }
+
     private func loadDetails() async {
         if ticket == nil { isLoading = true }
         self.errorMessage = nil

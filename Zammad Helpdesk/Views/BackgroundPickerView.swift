@@ -38,11 +38,14 @@ struct BackgroundPickerView: View {
     private var customOption: BackgroundOption { .custom(for: mode) }
 
     private var customSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        // Read once: the PhotosPicker label closure is not main-actor isolated.
+        let hasPhoto = customStore.hasImage(for: mode)
+        let pickerTitle = (hasPhoto ? "change_photo" : "choose_photo").localized()
+        return VStack(alignment: .leading, spacing: 12) {
             sectionHeader("custom_wallpaper_section".localized())
 
             HStack(alignment: .top, spacing: 16) {
-                if customStore.hasImage(for: mode) {
+                if hasPhoto {
                     BackgroundOptionCell(option: customOption, isSelected: selection == customOption.rawValue) {
                         selection = customOption.rawValue
                     }
@@ -51,14 +54,11 @@ struct BackgroundPickerView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     PhotosPicker(selection: $photoSelection, matching: .images, photoLibrary: .shared()) {
-                        Label(
-                            (customStore.hasImage(for: mode) ? "change_photo" : "choose_photo").localized(),
-                            systemImage: "photo.on.rectangle"
-                        )
+                        Label(pickerTitle, systemImage: "photo.on.rectangle")
                     }
                     .disabled(isImportingPhoto)
 
-                    if customStore.hasImage(for: mode) {
+                    if hasPhoto {
                         Button(role: .destructive) {
                             removePhoto()
                         } label: {

@@ -270,6 +270,40 @@ class TicketViewModel: ObservableObject {
         }
     }
     
+    enum CloseAsSpamError: LocalizedError {
+        case noClosedState
+        var errorDescription: String? { "close_as_spam_no_closed_state".localized() }
+    }
+
+    /// The "closed" state, matched by name first (Zammad's default states keep
+    /// their English names even on localised instances) and by state type as
+    /// a fallback for instances that renamed it. State type 5 is "closed" on
+    /// every Zammad install.
+    private var closedState: TicketState? {
+        ticketStates.first { ["closed", "gesloten", "geschlossen", "fermé"].contains($0.name.lowercased()) }
+            ?? ticketStates.first { $0.state_type_id == 5 }
+    }
+
+    /// Mirrors Zammad's built-in "Close & Tag as Spam" macro: tag the ticket
+    /// `spam`, then set its state to closed. The tag goes first so a ticket
+    /// that cannot be closed (e.g. a required field is missing) still carries
+    /// the spam marker for whoever handles it on the desktop.
+    func closeAsSpam(_ ticket: Ticket) async throws {
+        guard let closed = closedState else {
+            throw CloseAsSpamError.noClosedState
+        }
+        try await apiService.addTag(ticketId: ticket.id, tag: "spam")
+        let payload = TicketUpdatePayload(
+            owner_id: ticket.owner_id,
+            state_id: closed.id,
+            priority_id: ticket.priority_id,
+            customer_id: ticket.customer_id,
+            pending_time: nil
+        )
+        _ = try await apiService.updateTicket(id: ticket.id, payload: payload)
+        await refreshAllData()
+    }
+
     func sendReply(for ticket: Ticket, with body: String, subject: String, recipient: String, articleToReplyTo: TicketArticle?, attachments: [AttachmentDraft] = []) async throws {
         let payload = ArticleCreationPayload(
             ticket_id: ticket.id,

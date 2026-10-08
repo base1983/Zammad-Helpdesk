@@ -18,30 +18,22 @@ final class InterstitialAdManager: NSObject, ObservableObject {
     #if DEBUG
     private static let adUnitID = "ca-app-pub-3940256099942544/4411468910"
     #else
-    // TODO: create an Interstitial ad unit in AdMob and paste its id here. An
-    // unknown id simply never loads, so Settings opens without an ad.
-    private static let adUnitID = "ca-app-pub-7428603098298858/0000000000"
+    // AdMob unit "SettingsPage" (interstitial). A freshly created unit returns
+    // "No ad to show" for up to an hour or so until it has propagated.
+    private static let adUnitID = "ca-app-pub-7428603098298858/4942575103"
     #endif
-
-    /// Earliest moment the next interstitial may be shown. Showing one on
-    /// every single tap is both annoying and against AdMob's placement
-    /// guidance, so Settings is ad-free for a while after each ad.
-    private static let minimumInterval: TimeInterval = 120
 
     private var loadedAd: InterstitialAd?
     private var isLoading = false
-    private var lastPresentedAt: Date?
     private var onDismiss: (() -> Void)?
 
     private override init() {}
 
-    /// True when an ad is ready and the cooldown has passed.
+    /// True when an ad is ready and no full-screen ad (of any format) was
+    /// shown within the shared cooldown. Showing one on every single tap is
+    /// both annoying and against AdMob's placement guidance.
     var canPresent: Bool {
-        guard loadedAd != nil else { return false }
-        if let lastPresentedAt, Date().timeIntervalSince(lastPresentedAt) < Self.minimumInterval {
-            return false
-        }
-        return true
+        loadedAd != nil && !FullScreenAdThrottle.isCoolingDown
     }
 
     /// Fetches the next interstitial if none is loaded or in flight.
@@ -76,7 +68,7 @@ final class InterstitialAdManager: NSObject, ObservableObject {
         }
         loadedAd = nil
         onDismiss = completion
-        lastPresentedAt = Date()
+        FullScreenAdThrottle.markPresented()
         ad.present(from: controller)
     }
 

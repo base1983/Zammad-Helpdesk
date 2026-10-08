@@ -12,6 +12,12 @@ struct AdBannerView: UIViewControllerRepresentable {
     let width: CGFloat
     @Binding var isLoaded: Bool
 
+    /// Height the adaptive banner will take for `width`, so a container can
+    /// reserve exactly that much once an ad has loaded.
+    static func height(forWidth width: CGFloat) -> CGFloat {
+        currentOrientationAnchoredAdaptiveBanner(width: width).size.height
+    }
+
     func makeCoordinator() -> Coordinator {
         Coordinator(isLoaded: $isLoaded)
     }

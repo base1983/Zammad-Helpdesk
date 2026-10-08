@@ -1,7 +1,8 @@
 import SwiftUI
+import StoreKit
 
 enum AuthMethod: String, CaseIterable, Identifiable {
-    case sso, password, token
+    case password, sso, token
     var id: Self { self }
 
     var label: String {
@@ -18,26 +19,34 @@ struct SetupWizardView: View {
 
     @State private var serverURL = ""
     @State private var apiToken = ""
-    @State private var authMethod: AuthMethod = .sso
+    @State private var authMethod: AuthMethod = .password
     @State private var username = ""
     @State private var password = ""
     @State private var isShowingSSOSheet = false
     @State private var enableBiometrics = false
     @State private var enableNotifications = false
 
+    @StateObject private var storeManager = StoreManager()
+
     private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
     @AppStorage("is_setup_complete", store: Self.groupDefaults) private var isSetupComplete: Bool = false
+    @AppStorage("are_ads_removed", store: Self.groupDefaults) private var areAdsRemoved: Bool = false
+
+    /// Apple's standard EULA; the same link is in the App Store description.
+    private static let termsOfUseURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+    private static let privacyPolicyURL = URL(string: "https://base1983.github.io/Zammad-Helpdesk/privacy.html")!
 
     @State private var isTestingConnection = false
     @State private var connectionTestResult: String?
 
-    let totalSteps = 2
+    let totalSteps = 3
 
     var body: some View {
         VStack {
             TabView(selection: $currentStep) {
                 serverStep.tag(0)
-                permissionsStep.tag(1)
+                premiumStep.tag(1)
+                permissionsStep.tag(2)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
 
@@ -88,7 +97,7 @@ struct SetupWizardView: View {
                                 .padding(.vertical, 6)
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(.blue)
+                        .tint(apiToken.isEmpty ? .blue : .gray)
                         .disabled(serverURL.isEmpty)
 
                         if !apiToken.isEmpty {
@@ -129,6 +138,128 @@ struct SetupWizardView: View {
         }
     }
 
+    // The paywall is deliberately part of the wizard so the In-App Purchases
+    // are reachable before any server login (App Review, Guideline 2.1(b)).
+    var premiumStep: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                Text("premium_step_title".localized()).font(.largeTitle).bold()
+                Text("premium_step_message".localized()).multilineTextAlignment(.center)
+
+                if areAdsRemoved {
+                    StyledSection(title: "") {
+                        HStack {
+                            Image(systemName: "star.fill").foregroundColor(.yellow)
+                            Text("premium_user_message".localized())
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                        }
+                    }
+                } else if storeManager.isLoadingProducts {
+                    HStack {
+                        ProgressView().scaleEffect(0.8)
+                        Text("loading_products".localized())
+                    }
+                } else {
+                    StyledSection(title: "in_app_purchases".localized()) {
+                        VStack(spacing: 16) {
+                            if let monthly = storeManager.monthlyProduct {
+                                productButton(for: monthly, description: "premium_description_monthly".localized())
+                            }
+                            if let yearly = storeManager.yearlyProduct {
+                                productButton(for: yearly, description: "premium_description_yearly".localized())
+                            }
+                            if let lifetime = storeManager.lifetimeProduct {
+                                productButton(for: lifetime, description: "premium_description_lifetime".localized())
+                            }
+                            if let message = storeManager.storeMessage {
+                                Text(message)
+                                    .font(.footnote)
+                                    .foregroundColor(.red)
+                            }
+                            if !storeManager.hasProducts {
+                                Button("products_retry".localized()) {
+                                    Task { await storeManager.reload() }
+                                }
+                                .font(.footnote)
+                            }
+                        }
+                    }
+                }
+
+                if !areAdsRemoved && !storeManager.isLoadingProducts {
+                    Button("restore_purchases".localized()) {
+                        Task { await storeManager.restorePurchases() }
+                    }
+                    .font(.footnote)
+                }
+
+                // Guideline 3.1.2: a paywall with auto-renewable subscriptions
+                // must state how renewal works and link to the Terms of Use and
+                // the privacy policy.
+                VStack(alignment: .leading, spacing: 6) {
+                    if !areAdsRemoved {
+                        Text("subscription_terms".localized())
+                    }
+                    HStack(spacing: 12) {
+                        Link("terms_of_use".localized(), destination: Self.termsOfUseURL)
+                        Text("·")
+                        Link("privacy_policy".localized(), destination: Self.privacyPolicyURL)
+                    }
+                }
+                .font(.footnote)
+                .foregroundColor(.secondary)
+
+                Spacer(minLength: 20)
+            }
+            .padding()
+            .disabled(storeManager.isTransactionInProgress)
+        }
+    }
+
+    private func productButton(for product: Product, description: String) -> some View {
+        Button(action: {
+            Task { await storeManager.purchase(product) }
+        }) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(product.displayName)
+                        .font(.headline)
+                    Text(description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(product.displayPrice)
+                        .fontWeight(.bold)
+                    if let period = billingPeriod(for: product) {
+                        Text(period)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 10)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(8)
+            }
+            .foregroundColor(.primary)
+            .padding(.vertical, 4)
+        }
+    }
+
+    /// "per month" / "per year" for subscriptions, nil for the lifetime unlock.
+    private func billingPeriod(for product: Product) -> String? {
+        guard let period = product.subscription?.subscriptionPeriod else { return nil }
+        switch (period.unit, period.value) {
+        case (.month, 1): return "billing_per_month".localized()
+        case (.year, 1): return "billing_per_year".localized()
+        case (.week, 1): return "billing_per_week".localized()
+        default: return nil
+        }
+    }
+
     var permissionsStep: some View {
         VStack(spacing: 20) {
             Text("permissions_title".localized()).font(.largeTitle).bold()
@@ -139,7 +270,20 @@ struct SetupWizardView: View {
             }
 
             StyledSection(title: "") {
-                Toggle("enable_notifications".localized(), isOn: $enableNotifications)
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("enable_notifications".localized(), isOn: $enableNotifications)
+                        .disabled(!areAdsRemoved)
+                        .foregroundColor(areAdsRemoved ? .white : .gray)
+                    if !areAdsRemoved {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "crown.fill")
+                                .foregroundColor(.yellow)
+                            Text("notifications_premium_wizard_hint".localized())
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
             }
 
             Spacer()
@@ -156,15 +300,27 @@ struct SetupWizardView: View {
 
             if currentStep == totalSteps - 1 {
                 Button("finish_setup".localized()) { finishSetup() }
+            } else if isSSOTokenReady {
+                // SSO token received — highlight the next step
+                Button("next_step".localized()) { nextStep() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.blue)
+                    .disabled(isTestingConnection)
             } else {
-                Button("next_step".localized()) {
-                    if currentStep == 0 { testAndProceed() }
-                    else { withAnimation { currentStep += 1 } }
-                }
-                .disabled(isTestingConnection)
+                Button("next_step".localized()) { nextStep() }
+                    .disabled(isTestingConnection)
             }
         }
         .padding()
+    }
+
+    private var isSSOTokenReady: Bool {
+        currentStep == 0 && authMethod == .sso && !apiToken.isEmpty
+    }
+
+    private func nextStep() {
+        if currentStep == 0 { testAndProceed() }
+        else { withAnimation { currentStep += 1 } }
     }
 
     private func testAndProceed() {
@@ -231,9 +387,14 @@ struct SetupWizardView: View {
             SettingsManager.shared.save(serverURL: serverURL)
             SettingsManager.shared.save(token: apiToken)
             SettingsManager.shared.save(isLockEnabled: enableBiometrics)
-            SettingsManager.shared.save(areRealtimeNotificationsEnabled: enableNotifications)
 
-            if enableNotifications {
+            // Notifications are a Premium feature; the toggle is disabled
+            // without Premium, but guard here too in case the entitlement
+            // changed after the toggle was set.
+            let notificationsAllowed = enableNotifications && areAdsRemoved
+            SettingsManager.shared.save(areRealtimeNotificationsEnabled: notificationsAllowed)
+
+            if notificationsAllowed {
                 NotificationSetupManager.shared.enableNotifications()
             }
 

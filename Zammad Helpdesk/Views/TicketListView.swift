@@ -9,10 +9,15 @@ struct TicketListContainerView: View {
     @ObservedObject private var chatService = ChatService.shared
     @ObservedObject private var adConsent = AdConsentManager.shared
     @State private var isAdLoaded = false
-    
+    /// Slots (1 = after the 10th ticket, 2 = after the 20th, …) whose in-list
+    /// banner has actually received an ad; the others take no room.
+    @State private var loadedListAdSlots: Set<Int> = []
+
     @State private var isShowingCreateTicket = false
     @State private var isShowingSettings = false
     @State private var isShowingChat = false
+    @State private var ticketPendingSpam: Ticket?
+    @State private var spamError: String?
     private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
     @AppStorage("are_ads_removed", store: Self.groupDefaults) private var areAdsRemoved: Bool = false
     
@@ -29,6 +34,46 @@ struct TicketListContainerView: View {
     #else
     private let adUnitID = "ca-app-pub-7428603098298858/7003691655"
     #endif
+    /// Banner between tickets, one after every `ticketsPerAd` rows. Shares the
+    /// unit with the bottom banner; give it its own AdMob unit if you want
+    /// separate reporting for the two placements.
+    private var listAdUnitID: String { adUnitID }
+    private static let ticketsPerAd = 10
+
+    /// Whether this user gets ads at all: not Premium, and UMP consent settled.
+    private var showsAds: Bool { !areAdsRemoved && adConsent.canShowAds }
+
+    /// One row of the ticket list: a ticket, or an ad slot between two groups
+    /// of tickets. Ad slots have their own stable ids so a refresh that shifts
+    /// tickets around does not tear the banners down and request them again.
+    private enum ListEntry: Identifiable {
+        case ticket(Ticket)
+        case ad(slot: Int)
+
+        var id: String {
+            switch self {
+            case .ticket(let ticket): return "ticket-\(ticket.id)"
+            case .ad(let slot): return "ad-\(slot)"
+            }
+        }
+    }
+
+    /// Tickets with an ad slot after every tenth one — strictly *between*
+    /// tickets, so a list of exactly ten (or twenty, …) does not end on an ad.
+    private var listEntries: [ListEntry] {
+        let tickets = viewModel.displayTickets
+        guard showsAds else { return tickets.map { .ticket($0) } }
+        var entries: [ListEntry] = []
+        entries.reserveCapacity(tickets.count + tickets.count / Self.ticketsPerAd)
+        for (index, ticket) in tickets.enumerated() {
+            entries.append(.ticket(ticket))
+            let position = index + 1
+            if position.isMultiple(of: Self.ticketsPerAd) && position < tickets.count {
+                entries.append(.ad(slot: position / Self.ticketsPerAd))
+            }
+        }
+        return entries
+    }
 
     init(viewModel: TicketViewModel, ticketToShow: Binding<Ticket?>, showDeepLinkedTicket: Binding<Bool>) {
         self.viewModel = viewModel
@@ -41,7 +86,7 @@ struct TicketListContainerView: View {
             VStack(spacing: 0) {
                 NavigationStack {
                     ZStack {
-                        ticketList
+                        ticketList(width: geometry.size.width)
                             .background(ClearBackgroundView())
                         statusOverlay
                     }
@@ -79,6 +124,11 @@ struct TicketListContainerView: View {
             }
             Task { await chatService.refreshUnreadCount() }
         }
+        .onChange(of: showsAds, initial: true) { _, showsAds in
+            // Have the Settings interstitial ready before the user asks for
+            // it; the manager keeps one loaded from here on.
+            if showsAds { InterstitialAdManager.shared.preload() }
+        }
         .onReceive(DeepLinkManager.shared.$pendingChatPartnerID) { partnerID in
             // A chat push was tapped: open the chat screen; ChatListView picks
             // up the pending partner and opens the conversation.
@@ -102,25 +152,14 @@ struct TicketListContainerView: View {
         }
     }
     
-    private var ticketList: some View {
+    private func ticketList(width: CGFloat) -> some View {
         List {
-            ForEach(viewModel.displayTickets) { ticket in
-                NavigationLink(value: ticket) {
-                    TicketRowView(
-                        ticket: ticket,
-                        customerName: viewModel.userName(for: ticket.customer_id),
-                        stateName: viewModel.localizedStatusName(for: viewModel.stateName(for: ticket.state_id)),
-                        priorityName: viewModel.priorityName(for: ticket.priority_id),
-                        statusColor: viewModel.colorForStatus(named: viewModel.stateName(for: ticket.state_id)),
-                        priorityColor: viewModel.colorForPriority(named: viewModel.priorityName(for: ticket.priority_id)),
-                        viewModel: viewModel
-                    )
-                }
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                    swipeActions(for: ticket)
+            ForEach(listEntries) { entry in
+                switch entry {
+                case .ticket(let ticket):
+                    ticketRow(for: ticket)
+                case .ad(let slot):
+                    listAdRow(slot: slot, width: width)
                 }
             }
         }
@@ -128,8 +167,108 @@ struct TicketListContainerView: View {
         .scrollContentBackground(.hidden)
         .background(Color.clear)
         .refreshable { await viewModel.refreshAllData() }
+        .confirmationDialog(
+            "close_as_spam_confirm_title".localized(),
+            isPresented: Binding(
+                get: { ticketPendingSpam != nil },
+                set: { if !$0 { ticketPendingSpam = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: ticketPendingSpam
+        ) { ticket in
+            Button("close_as_spam".localized(), role: .destructive) {
+                Task {
+                    do {
+                        try await viewModel.closeAsSpam(ticket)
+                    } catch {
+                        spamError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    }
+                }
+            }
+            Button("cancel".localized(), role: .cancel) {}
+        } message: { ticket in
+            Text("#\(ticket.number) · \(ticket.title)\n\("close_as_spam_confirm_message".localized())")
+        }
+        .alert("close_as_spam_failed".localized(), isPresented: Binding(
+            get: { spamError != nil },
+            set: { if !$0 { spamError = nil } }
+        )) {
+            Button("ok".localized(), role: .cancel) {}
+        } message: {
+            Text(spamError ?? "")
+        }
     }
-    
+
+    private func ticketRow(for ticket: Ticket) -> some View {
+        // The NavigationLink sits invisibly behind the card instead of wrapping
+        // it: List draws a disclosure chevron for a visible link and reserves
+        // room for it, which pushed the card off-centre. The whole row still
+        // navigates, and swipe actions are unaffected.
+        ZStack {
+            NavigationLink(value: ticket) { EmptyView() }
+                .opacity(0)
+            TicketRowView(
+                ticket: ticket,
+                customerName: viewModel.userName(for: ticket.customer_id),
+                stateName: viewModel.localizedStatusName(for: viewModel.stateName(for: ticket.state_id)),
+                priorityName: viewModel.priorityName(for: ticket.priority_id),
+                statusColor: viewModel.colorForStatus(named: viewModel.stateName(for: ticket.state_id)),
+                priorityColor: viewModel.colorForPriority(named: viewModel.priorityName(for: ticket.priority_id)),
+                viewModel: viewModel
+            )
+        }
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            swipeActions(for: ticket)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            // Explicit tint: the list's accent tint is white in dark
+            // mode, which would hide the white glyph.
+            Button(role: .destructive) {
+                ticketPendingSpam = ticket
+            } label: {
+                Label("spam".localized(), systemImage: "xmark.bin.fill")
+            }
+            .tint(.red)
+        }
+    }
+
+    /// Screen-wide banner between two groups of tickets. Like the bottom
+    /// banner it stays mounted so the SDK keeps trying, but collapses to
+    /// nothing (no height, no insets) until an ad has actually arrived.
+    private func listAdRow(slot: Int, width: CGFloat) -> some View {
+        let bannerWidth = max(width, 0)
+        let isLoaded = loadedListAdSlots.contains(slot)
+        return AdBannerView(
+            adUnitID: listAdUnitID,
+            width: bannerWidth,
+            isLoaded: Binding(
+                get: { loadedListAdSlots.contains(slot) },
+                set: { loaded in
+                    if loaded { loadedListAdSlots.insert(slot) } else { loadedListAdSlots.remove(slot) }
+                }
+            )
+        )
+        .frame(height: isLoaded ? AdBannerView.height(forWidth: bannerWidth) : 0)
+        .clipped()
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: isLoaded ? 8 : 0, leading: 0, bottom: isLoaded ? 8 : 0, trailing: 0))
+    }
+
+    /// Opens Settings, behind a full-screen interstitial for non-Premium users.
+    /// The manager calls back immediately when no ad is ready, so Settings is
+    /// never held hostage by a missing ad.
+    private func openSettings() {
+        guard showsAds else {
+            isShowingSettings = true
+            return
+        }
+        InterstitialAdManager.shared.present { isShowingSettings = true }
+    }
+
     @ViewBuilder
     private func swipeActions(for ticket: Ticket) -> some View {
         if readStatusManager.isUnread(ticket: ticket, currentUser: viewModel.currentUser) {
@@ -188,7 +327,7 @@ struct TicketListContainerView: View {
                 Text(viewModel.activeFilter.displayName).font(.title2).fontWeight(.bold).foregroundColor(.primary)
             }
             ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: { isShowingSettings = true }) { Image(systemName: "gearshape") }.toolbarButtonStyle()
+                Button(action: openSettings) { Image(systemName: "gearshape") }.toolbarButtonStyle()
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack {

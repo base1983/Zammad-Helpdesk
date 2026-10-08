@@ -170,6 +170,7 @@ struct SettingsView: View {
             backgroundPicker(
                 title: "background_light_mode".localized(),
                 systemImage: "sun.max",
+                mode: .light,
                 wallpapers: BackgroundOption.lightWallpapers,
                 colors: BackgroundOption.lightColors,
                 selection: $lightBackgroundOption
@@ -177,6 +178,7 @@ struct SettingsView: View {
             backgroundPicker(
                 title: "background_dark_mode".localized(),
                 systemImage: "moon",
+                mode: .dark,
                 wallpapers: BackgroundOption.darkWallpapers,
                 colors: BackgroundOption.darkColors,
                 selection: $darkBackgroundOption
@@ -231,9 +233,9 @@ struct SettingsView: View {
         }
     }
 
-    private func backgroundPicker(title: String, systemImage: String, wallpapers: [BackgroundOption], colors: [BackgroundOption], selection: Binding<String>) -> some View {
+    private func backgroundPicker(title: String, systemImage: String, mode: WallpaperMode, wallpapers: [BackgroundOption], colors: [BackgroundOption], selection: Binding<String>) -> some View {
         NavigationLink {
-            BackgroundPickerView(title: title, wallpapers: wallpapers, colors: colors, selection: selection)
+            BackgroundPickerView(title: title, mode: mode, wallpapers: wallpapers, colors: colors, selection: selection)
         } label: {
             HStack {
                 Label(title, systemImage: systemImage)
@@ -245,16 +247,7 @@ struct SettingsView: View {
 
     /// Miniature preview of the currently selected background.
     private func backgroundPreviewSwatch(for option: BackgroundOption) -> some View {
-        Group {
-            switch option.previewStyle {
-            case .image(let name):
-                Image(name)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            case .color(let color):
-                color
-            }
-        }
+        BackgroundPreview(option: option)
         .frame(width: 24, height: 40)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay {

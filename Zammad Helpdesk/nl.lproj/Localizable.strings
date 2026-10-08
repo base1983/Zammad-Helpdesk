@@ -43,6 +43,14 @@
 "status_new" = "Nieuw";
 "status_pending_reminder" = "Wacht op herinnering";
 "status_closed" = "Gesloten";
+
+/* Close & tag as spam (mirrors Zammad's built-in macro) */
+"close_as_spam" = "Sluiten en markeren als spam";
+"spam" = "Spam";
+"close_as_spam_confirm_title" = "Dit ticket sluiten en als spam markeren?";
+"close_as_spam_confirm_message" = "Het ticket krijgt de tag \"spam\" en de status Gesloten, net als de Zammad-macro \"Close & Tag as Spam\".";
+"close_as_spam_failed" = "Het ticket kon niet als spam worden gesloten.";
+"close_as_spam_no_closed_state" = "Er is geen ticketstatus \"gesloten\" gevonden op deze server.";
 "status_merged" = "Samengevoegd";
 "status_pending_close" = "Wacht op sluiting";
 /* TODO: Translate */
@@ -109,6 +117,11 @@
 "color_charcoal" = "Antraciet";
 "color_forest" = "Bosgroen";
 "color_plum" = "Pruim";
+"wallpaper_custom" = "Eigen foto";
+"custom_wallpaper_section" = "Je eigen foto";
+"choose_photo" = "Kies een foto…";
+"change_photo" = "Foto wijzigen";
+"remove_photo" = "Foto verwijderen";
 "premium_description_lifetime" = "Eenmalige aankoop. Voor altijd premium.";
 "handoff_ticket" = "Ticket overdragen";
 "handoff_engineer" = "Collega";
@@ -305,3 +318,8 @@
 "chat_user_blocked" = "Je hebt deze collega geblokkeerd. Deblokkeer via Instellingen om berichten te sturen.";
 "chat_report_mail_unavailable" = "Er is geen e-mailaccount ingesteld op dit toestel. Stuur je melding naar %@.";
 "chat_report_subject" = "Melding: chatinhoud in Helpdesk for Zammad";
+
+/* Setup wizard: Premium step */
+"premium_step_title" = "Word Premium";
+"premium_step_message" = "Optioneel: Premium verwijdert alle advertenties en ontgrendelt realtime meldingen en de badge op het app-icoon. Kies nu een abonnement of de eenmalige aankoop, of doe dit later via Instellingen.";
+"notifications_premium_wizard_hint" = "Realtime meldingen en de badge op het app-icoon zijn Premium-functies. Ga één stap terug om Premium te ontgrendelen, of doe dit later via Instellingen.";

@@ -484,9 +484,12 @@ private struct SSOWebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .nonPersistent()
+        // Always request the desktop site — Zammad's mobile view hides the profile/token pages
+        config.defaultWebpagePreferences.preferredContentMode = .desktop
         let webView = WKWebView(frame: .zero, configuration: config)
-        // Pretend to be Safari to bypass Microsoft's "embedded webview" block on Azure AD logins
-        webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+        // Pretend to be desktop Safari: bypasses Microsoft's "embedded webview" block on
+        // Azure AD logins and keeps Zammad from serving its mobile page
+        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
         if let url = loginURL() {
             print("SSO: loading initial URL \(url)")

@@ -7,7 +7,10 @@ struct ContentView: View {
     @AppStorage("background_light_option", store: Self.groupDefaults) private var lightBackgroundOption: String = BackgroundOption.flowers.rawValue
     @AppStorage("background_dark_option", store: Self.groupDefaults) private var darkBackgroundOption: String = BackgroundOption.pebbles.rawValue
     @Environment(\.colorScheme) private var systemColorScheme
-    
+    @ObservedObject private var customWallpapers = CustomWallpaperStore.shared
+    @ObservedObject private var adConsent = AdConsentManager.shared
+    @AppStorage("are_ads_removed", store: Self.groupDefaults) private var areAdsRemoved: Bool = false
+
     @State private var showAnimation = true
     
     @StateObject private var viewModel = TicketViewModel()
@@ -23,7 +26,7 @@ struct ContentView: View {
         ZStack {
             // 1. The Global Background (wallpaper image or solid color)
             GeometryReader { geo in
-                switch backgroundOption.style {
+                switch resolvedBackgroundStyle {
                 case .image(let name):
                     Image(name)
                         .resizable()
@@ -32,6 +35,15 @@ struct ContentView: View {
                         .clipped()
                 case .color(let color):
                     color
+                case .custom(let mode):
+                    // Only reached when the photo exists; see resolvedBackgroundStyle.
+                    if let image = customWallpapers.image(for: mode) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .clipped()
+                    }
                 }
             }
             .ignoresSafeArea()
@@ -105,21 +117,52 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
             case .active:
-                if !authManager.isUnlocked { 
-                    authManager.authenticate() 
+                if !authManager.isUnlocked {
+                    authManager.authenticate()
                 } else if let id = DeepLinkManager.shared.pendingTicketID {
                     handleDeepLinkInView(ticketID: id)
+                } else {
+                    showAppOpenAdIfAllowed()
                 }
             case .inactive, .background:
                 authManager.lock()
-            @unknown default: 
+            @unknown default:
                 break
             }
         }
         .onChange(of: authManager.isUnlocked) { _, isUnlocked in
             if isUnlocked, let ticketID = DeepLinkManager.shared.pendingTicketID {
                 handleDeepLinkInView(ticketID: ticketID)
+            } else if isUnlocked {
+                // With the biometric lock on, "the app is open" only once
+                // Face ID has let the user through.
+                showAppOpenAdIfAllowed()
             }
+        }
+        .onChange(of: showsAds, initial: true) { _, showsAds in
+            // Consent settled (or Premium lapsed): fetch the app open ad so it
+            // is ready for the cold start and the next foreground.
+            guard showsAds else { return }
+            AppOpenAdManager.shared.preload()
+            showAppOpenAdIfAllowed()
+        }
+    }
+
+    /// Non-Premium users with settled consent get ads at all.
+    private var showsAds: Bool { !areAdsRemoved && adConsent.canShowAds }
+
+    /// Shows the app open ad on launch and on return to the foreground, but
+    /// never over the lock screen, the setup wizard, or a ticket being opened
+    /// from a push notification. The closure is re-evaluated by the manager
+    /// when the ad lands a moment later on a cold start.
+    private func showAppOpenAdIfAllowed() {
+        let authManager = self.authManager
+        AppOpenAdManager.shared.presentIfReady {
+            (Self.groupDefaults?.bool(forKey: "is_setup_complete") ?? false)
+                && !SettingsManager.shared.isPremium()
+                && AdConsentManager.shared.canShowAds
+                && authManager.isUnlocked
+                && DeepLinkManager.shared.pendingTicketID == nil
         }
     }
     
@@ -171,6 +214,16 @@ struct ContentView: View {
         } else {
             return BackgroundOption(rawValue: lightBackgroundOption) ?? .flowers
         }
+    }
+
+    /// The option's style, except that a custom photo whose file is missing
+    /// (removed, restored from a backup without the container, …) falls back
+    /// to the mode's default wallpaper instead of a blank screen.
+    private var resolvedBackgroundStyle: BackgroundOption.Style {
+        if case .custom(let mode) = backgroundOption.style, !customWallpapers.hasImage(for: mode) {
+            return BackgroundOption.defaultOption(for: mode).style
+        }
+        return backgroundOption.style
     }
 
     private func getPreferredColorScheme() -> ColorScheme? {

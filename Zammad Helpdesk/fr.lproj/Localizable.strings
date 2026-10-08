@@ -43,6 +43,14 @@
 "status_new" = "Nouveau";
 "status_pending_reminder" = "En attente de rappel";
 "status_closed" = "Fermé";
+
+/* Close & tag as spam (mirrors Zammad's built-in macro) */
+"close_as_spam" = "Fermer et marquer comme spam";
+"spam" = "Spam";
+"close_as_spam_confirm_title" = "Fermer ce ticket et le marquer comme spam ?";
+"close_as_spam_confirm_message" = "Le ticket reçoit l'étiquette \"spam\" et passe à l'état Fermé, comme la macro Zammad \"Close & Tag as Spam\".";
+"close_as_spam_failed" = "Impossible de fermer le ticket comme spam.";
+"close_as_spam_no_closed_state" = "Aucun état de ticket \"fermé\" n'a été trouvé sur ce serveur.";
 "status_merged" = "Fusionné";
 "status_pending_close" = "En attente de fermeture";
 
@@ -110,6 +118,11 @@
 "color_charcoal" = "Anthracite";
 "color_forest" = "Forêt";
 "color_plum" = "Prune";
+"wallpaper_custom" = "Votre photo";
+"custom_wallpaper_section" = "Votre propre photo";
+"choose_photo" = "Choisir une photo…";
+"change_photo" = "Changer la photo";
+"remove_photo" = "Supprimer la photo";
 "premium_description_lifetime" = "Achat unique. Premium pour toujours.";
 "handoff_ticket" = "Transférer le ticket";
 "handoff_engineer" = "Collègue";
@@ -305,3 +318,8 @@
 "chat_user_blocked" = "Vous avez bloqué ce collègue. Débloquez-le dans les Réglages pour lui écrire.";
 "chat_report_mail_unavailable" = "Aucun compte e-mail n'est configuré sur cet appareil. Envoyez votre signalement à %@.";
 "chat_report_subject" = "Signalement : contenu de chat dans Helpdesk for Zammad";
+
+/* Setup wizard: Premium step */
+"premium_step_title" = "Passer à Premium";
+"premium_step_message" = "Facultatif : Premium supprime toute publicité et active les notifications en temps réel ainsi que la pastille de l'icône. Choisissez un abonnement ou l'achat unique maintenant, ou plus tard dans les Réglages.";
+"notifications_premium_wizard_hint" = "Les notifications en temps réel et la pastille de l'icône sont des fonctions Premium. Revenez à l'étape précédente pour débloquer Premium, ou faites-le plus tard dans les Réglages.";

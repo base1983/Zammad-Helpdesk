@@ -43,6 +43,14 @@
 "status_new" = "Neu";
 "status_pending_reminder" = "Wartet auf Erinnerung";
 "status_closed" = "Geschlossen";
+
+/* Close & tag as spam (mirrors Zammad's built-in macro) */
+"close_as_spam" = "Schließen und als Spam markieren";
+"spam" = "Spam";
+"close_as_spam_confirm_title" = "Dieses Ticket schließen und als Spam markieren?";
+"close_as_spam_confirm_message" = "Das Ticket erhält den Tag \"spam\" und den Status Geschlossen – wie das Zammad-Makro \"Close & Tag as Spam\".";
+"close_as_spam_failed" = "Das Ticket konnte nicht als Spam geschlossen werden.";
+"close_as_spam_no_closed_state" = "Auf diesem Server wurde kein Ticketstatus \"geschlossen\" gefunden.";
 "status_merged" = "Zusammengeführt";
 "status_pending_close" = "Wartet auf Schließung";
 "priority_low" = "Niedrig";
@@ -108,6 +116,11 @@
 "color_charcoal" = "Anthrazit";
 "color_forest" = "Waldgrün";
 "color_plum" = "Pflaume";
+"wallpaper_custom" = "Eigenes Foto";
+"custom_wallpaper_section" = "Dein eigenes Foto";
+"choose_photo" = "Foto auswählen…";
+"change_photo" = "Foto ändern";
+"remove_photo" = "Foto entfernen";
 "premium_description_lifetime" = "Einmaliger Kauf. Premium für immer.";
 "handoff_ticket" = "Ticket übergeben";
 "handoff_engineer" = "Kollege";
@@ -303,3 +316,8 @@
 "chat_user_blocked" = "Du hast diese Person blockiert. Hebe die Blockierung in den Einstellungen auf, um Nachrichten zu senden.";
 "chat_report_mail_unavailable" = "Auf diesem Gerät ist kein E-Mail-Konto eingerichtet. Sende deine Meldung an %@.";
 "chat_report_subject" = "Meldung: Chatinhalt in Helpdesk for Zammad";
+
+/* Setup wizard: Premium step */
+"premium_step_title" = "Premium freischalten";
+"premium_step_message" = "Optional: Premium entfernt alle Werbung und aktiviert Echtzeit-Benachrichtigungen sowie die Badge auf dem App-Symbol. Wähle jetzt ein Abo oder den Einmalkauf – oder später in den Einstellungen.";
+"notifications_premium_wizard_hint" = "Echtzeit-Benachrichtigungen und die Badge auf dem App-Symbol sind Premium-Funktionen. Gehe einen Schritt zurück, um Premium freizuschalten, oder hole dies später in den Einstellungen nach.";
