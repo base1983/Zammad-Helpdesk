@@ -1,37 +1,88 @@
 import SwiftUI
 @preconcurrency import WebKit
 
+extension TicketArticle {
+    /// Whether the body is HTML (by content type, or by the look of it when
+    /// Zammad labels an HTML mail as plain text). HTML articles render in a
+    /// web view on a light card; everything else is native text.
+    var isHTMLBody: Bool {
+        content_type.lowercased().contains("html") || body.looksLikeHTML
+    }
+}
+
 struct RichArticleBodyView: View {
     let article: TicketArticle
     let ticketId: Int
 
     @State private var renderedHTML: String?
     @State private var height: CGFloat = 40
+    @State private var isExpanded = false
 
-    private var isHTML: Bool {
-        article.content_type.lowercased().contains("html") || article.body.looksLikeHTML
-    }
+    /// Tallest an HTML message is shown at before it is cut off behind
+    /// "More". Long mails and quoted threads otherwise bury the next article.
+    private static let collapsedHeight: CGFloat = 260
+    /// Only collapse when there is clearly more to gain than the button costs.
+    private static let collapseSlack: CGFloat = 60
+    /// Plain-text line limit before "More" appears.
+    private static let collapsedLineLimit = 8
 
     var body: some View {
-        Group {
-            if isHTML {
-                if let html = renderedHTML {
-                    HTMLWebView(html: html, height: $height)
-                        .frame(height: height)
-                } else {
-                    Text(article.body.strippingHTML())
-                        .textSelection(.enabled)
-                }
+        VStack(alignment: .leading, spacing: 8) {
+            if article.isHTMLBody {
+                htmlBody
             } else {
-                Text(article.body.decodingHTMLEntities())
-                    .textSelection(.enabled)
+                plainBody
+            }
+            if needsCollapse {
+                Button(action: { withAnimation(.easeInOut(duration: 0.2)) { isExpanded.toggle() } }) {
+                    Label(
+                        (isExpanded ? "show_less" : "show_more").localized(),
+                        systemImage: isExpanded ? "chevron.up" : "chevron.down"
+                    )
+                    .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.borderless)
             }
         }
         .task(id: article.id) {
-            guard isHTML, renderedHTML == nil else { return }
+            guard article.isHTMLBody, renderedHTML == nil else { return }
             await prepareHTML()
         }
     }
+
+    // MARK: - Bodies
+
+    @ViewBuilder
+    private var htmlBody: some View {
+        if let html = renderedHTML {
+            HTMLWebView(html: html, height: $height)
+                .frame(height: isExpanded || !needsCollapse ? height : Self.collapsedHeight, alignment: .top)
+                .clipped()
+        } else {
+            Text(article.body.strippingHTML())
+                .textSelection(.enabled)
+                .lineLimit(isExpanded ? nil : Self.collapsedLineLimit)
+        }
+    }
+
+    private var plainBody: some View {
+        Text(article.body.decodingHTMLEntities())
+            .textSelection(.enabled)
+            .lineLimit(isExpanded ? nil : Self.collapsedLineLimit)
+    }
+
+    /// HTML: decided by the measured document height. Plain text: by a rough
+    /// size heuristic, since SwiftUI does not report whether `lineLimit` cut
+    /// anything off.
+    private var needsCollapse: Bool {
+        if article.isHTMLBody, renderedHTML != nil {
+            return height > Self.collapsedHeight + Self.collapseSlack
+        }
+        let text = article.isHTMLBody ? article.body.strippingHTML() : article.body
+        return text.count > 600 || text.filter { $0 == "\n" }.count >= Self.collapsedLineLimit
+    }
+
+    // MARK: - HTML preparation
 
     private func prepareHTML() async {
         var html = article.body
@@ -75,6 +126,9 @@ struct RichArticleBodyView: View {
         return result
     }
 
+    /// Always light, like Mail does for messages that bring their own colours:
+    /// HTML mail is designed for a white page, and a dark colour scheme would
+    /// turn unspecified text white on the mail's own white background.
     private func wrapInTemplate(_ body: String) -> String {
         """
         <!DOCTYPE html>
@@ -82,34 +136,35 @@ struct RichArticleBodyView: View {
         <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
         <style>
-            :root { color-scheme: light dark; }
+            :root { color-scheme: light; }
             html, body {
                 margin: 0;
                 padding: 0;
+                font: -apple-system-body;
                 font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-                font-size: 16px;
-                line-height: 1.4;
+                line-height: 1.5;
+                color: #1c1c1e;
                 background: transparent;
                 word-wrap: break-word;
                 -webkit-text-size-adjust: 100%;
             }
             img { max-width: 100%; height: auto; }
-            a { color: -apple-system-blue; }
+            a { color: #0a60ff; }
             blockquote {
-                border-left: 3px solid rgba(127,127,127,0.4);
+                border-left: 3px solid rgba(60,60,67,0.3);
                 margin: 8px 0;
                 padding: 4px 0 4px 10px;
-                opacity: 0.75;
+                color: #3c3c43;
             }
             pre, code {
-                background: rgba(127,127,127,0.15);
+                background: rgba(120,120,128,0.12);
                 border-radius: 4px;
                 padding: 2px 4px;
                 font-family: ui-monospace, monospace;
             }
             pre { padding: 8px; overflow-x: auto; }
             table { border-collapse: collapse; max-width: 100%; }
-            td, th { padding: 4px 8px; border: 1px solid rgba(127,127,127,0.3); }
+            td, th { padding: 4px 8px; border: 1px solid rgba(60,60,67,0.25); }
         </style>
         </head>
         <body>\(body)</body>
@@ -126,6 +181,9 @@ private struct HTMLWebView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        // Mail content has no business running scripts. The app's own height
+        // measurement still works: evaluateJavaScript is not content script.
+        config.defaultWebpagePreferences.allowsContentJavaScript = false
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.scrollView.isScrollEnabled = false
