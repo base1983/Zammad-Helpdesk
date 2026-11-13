@@ -772,6 +772,24 @@ gets a *different* token type; the app re-registers on launch and when the
 notifications toggle is flipped, so the stored token follows the installed
 build.
 
+## Android devices (FCM)
+
+The Android client (`android/`) speaks this same protocol; nothing in `chat.js`
+is platform-specific. Only delivery differs, and that lives in `server.js` and
+`fcm.js`:
+
+- `POST /api/register` accepts an optional `"platform": "android"`. The token
+  is then an FCM registration token and is stored as `fcm:<token>` in
+  `registrations.deviceToken`. iOS clients send no `platform`.
+- `sendChatPush` and the webhook handler look at that prefix: APNs for bare
+  tokens, FCM HTTP v1 (`fcm.js`, service account from the optional `fcm` block
+  in `config.json`) for prefixed ones.
+- Android receives *data* messages, never `notification` messages, with string
+  values: `title`, `body`, `body_loc_key` (`chat_new_message`, localised on the
+  device) and the same routing keys as the APNs payload — `chat_from_user_id`,
+  `chat_group_id`, `ticketID`. The body is never included for chat.
+- Without the `fcm` block the proxy runs as before and skips Android pushes.
+
 ## Operational notes
 
 - **Retention:** a cron deletes messages older than e.g. 90 days

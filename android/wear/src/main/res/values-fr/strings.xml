@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Helpdesk</string>
+    <string name="unknown">Inconnu</string>
+    <string name="unassigned">Non attribué</string>
+    <string name="loading_data">Chargement des données…</string>
+    <string name="try_again">Réessayer</string>
+    <string name="tickets">Tickets</string>
+    <string name="my_assigned_tickets">Mes tickets attribués</string>
+    <string name="unassigned_tickets">Tickets non attribués</string>
+    <string name="all_open_tickets">Tous les tickets ouverts</string>
+    <string name="filter">Filtre</string>
+    <string name="filter_by_status">Filtrer par statut</string>
+    <string name="no_tickets_in_view">Aucun ticket ici</string>
+    <string name="status_new">Nouveau</string>
+    <string name="status_open">Ouvert</string>
+    <string name="status_pending_reminder">En attente de rappel</string>
+    <string name="status_closed">Fermé</string>
+    <string name="status_merged">Fusionné</string>
+    <string name="status_pending_close">En attente de fermeture</string>
+    <string name="loading_ticket_details">Chargement des détails du ticket…</string>
+    <string name="ticket_not_found">Ticket introuvable</string>
+    <string name="details_section_header">Détails</string>
+    <string name="customer">Client</string>
+    <string name="status">Statut</string>
+    <string name="priority">Priorité</string>
+    <string name="owner">Propriétaire</string>
+    <string name="created_at">Créé le</string>
+    <string name="sign_in_on_phone">Ouvrez Zammad Helpdesk sur votre téléphone pour vous connecter.</string>
+    <string name="error_auth">Échec de l\'authentification. Reconnectez-vous sur votre téléphone.</string>
+    <string name="error_network">Impossible de joindre le serveur.</string>
+    <string name="error_invalid_url">L\'URL du serveur configurée est invalide.</string>
+    <string name="error_decoding">Impossible de traiter les données du serveur.</string>
+    <string name="error_server">Erreur du serveur : statut %1$d.</string>
+</resources>

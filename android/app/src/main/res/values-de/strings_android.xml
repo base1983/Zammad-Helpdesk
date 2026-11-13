@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-only strings (not present in the iOS Localizable.strings). -->
+<resources>
+    <string name="app_name">Helpdesk for Zammad</string>
+    <string name="channel_tickets">Tickets</string>
+    <string name="channel_chat">Chat</string>
+    <string name="push_not_configured">Push-Benachrichtigungen sind in diesem Build nicht verfügbar.</string>
+    <string name="push_registration_failed">Dieses Gerät konnte nicht für Benachrichtigungen registriert werden. Prüfen Sie die Verbindung und versuchen Sie es erneut.</string>
+    <string name="notification_permission_denied">Benachrichtigungen sind für diese App deaktiviert. Erlauben Sie sie in den Android-Einstellungen.</string>
+    <string name="no_app_for_file">Keine App auf diesem Gerät kann diese Datei öffnen.</string>
+    <string name="loading_ticket">Ticket wird geladen…</string>
+    <string name="manage_subscription">Abo verwalten</string>
+    <string name="current_plan">Aktuelles Abo</string>
+    <string name="open_in_browser">Im Browser öffnen</string>
+    <string name="wear_title">Wear OS</string>
+    <string name="wear_sync_hint">Server und Token werden mit der Helpdesk-App auf Ihrer gekoppelten Uhr geteilt.</string>
+    <string name="report">Melden</string>
+    <string name="support">Support</string>
+    <string name="wear_sync_now">Jetzt synchronisieren</string>
+    <string name="organization">Organisation</string>
+    <string name="customer_email_missing">E-Mail-Adresse des Kunden nicht gefunden.</string>
+    <string name="attachment_too_large">%s: zu groß (max. 25 MB).</string>
+    <string name="attachment_unreadable">%s: konnte nicht gelesen werden.</string>
+    <string name="article_type_note">Notiz</string>
+    <string name="article_type_email">E-Mail</string>
+    <string name="enable_app_lock">App-Sperre aktivieren (Fingerabdruck, Gesicht oder PIN)</string>
+    <string name="paste_token_explainer_android">Haben Sie im Browser ein Token in Ihrem Zammad-Profil erstellt? Fügen Sie es unten ein.</string>
+    <string name="subscription_terms_play">Abos verlängern sich automatisch, sofern sie nicht mindestens 24 Stunden vor Ende des laufenden Zeitraums gekündigt werden. Die Zahlung erfolgt über Ihr Google Play-Konto; verwalten oder kündigen Sie unter Abos in Google Play.</string>
+    <string name="notifications_premium_required_android">Echtzeit-Benachrichtigungen sind eine Premium-Funktion. Schalte sie mit einem Abo oder dem Einmalkauf unten frei.</string>
+    <string name="notifications_premium_wizard_hint_android">Echtzeit-Benachrichtigungen sind eine Premium-Funktion. Gehe einen Schritt zurück, um Premium freizuschalten, oder hole dies später in den Einstellungen nach.</string>
+    <string name="premium_step_message_android">Optional: Premium entfernt alle Werbung und aktiviert Echtzeit-Benachrichtigungen. Wähle jetzt ein Abo oder den Einmalkauf – oder später in den Einstellungen.</string>
+</resources>

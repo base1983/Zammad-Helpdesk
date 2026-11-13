@@ -23,3 +23,22 @@ proxy/config.json
 proxy/*.p8
 proxy/*.log
 node_modules/
+
+# Android (android/). Secrets and account-specific files never go in this public repo.
+android/.gradle/
+android/.kotlin/
+android/.idea/
+android/local.properties
+android/keystore.properties
+android/**/build/
+android/**/google-services.json
+android/captures/
+*.jks
+*.keystore
+*.apk
+*.aab
+*.iml
+
+# Firebase service account for the proxy (FCM). Server only.
+proxy/*service-account*.json
+proxy/firebase*.json

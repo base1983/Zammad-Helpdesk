@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-only strings (not present in the iOS Localizable.strings). -->
+<resources>
+    <string name="app_name">Helpdesk for Zammad</string>
+    <string name="channel_tickets">Tickets</string>
+    <string name="channel_chat">Chat</string>
+    <string name="push_not_configured">Push notifications are not available in this build.</string>
+    <string name="push_registration_failed">Could not register this device for notifications. Check your connection and try again.</string>
+    <string name="notification_permission_denied">Notifications are turned off for this app. Allow them in the Android settings.</string>
+    <string name="no_app_for_file">No app on this device can open this file.</string>
+    <string name="loading_ticket">Loading ticket…</string>
+    <string name="manage_subscription">Manage subscription</string>
+    <string name="current_plan">Current plan</string>
+    <string name="open_in_browser">Open in browser</string>
+    <string name="wear_title">Wear OS</string>
+    <string name="wear_sync_hint">Your server and token are shared with the Helpdesk app on your paired watch.</string>
+    <string name="report">Report</string>
+    <string name="support">Support</string>
+    <string name="wear_sync_now">Sync now</string>
+    <string name="organization">Organization</string>
+    <string name="customer_email_missing">Customer e-mail address not found.</string>
+    <string name="attachment_too_large">%s: too large (max 25 MB).</string>
+    <string name="attachment_unreadable">%s: could not be read.</string>
+    <string name="article_type_note">Note</string>
+    <string name="article_type_email">E-mail</string>
+    <string name="enable_app_lock">Enable app lock (fingerprint, face or PIN)</string>
+    <string name="paste_token_explainer_android">Did you create a token in the browser in your Zammad profile? Paste it below.</string>
+    <string name="subscription_terms_play">Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Payment is charged to your Google Play account; manage or cancel under Subscriptions in Google Play.</string>
+    <string name="notifications_premium_required_android">Real-time notifications are a Premium feature. Unlock them with a subscription or the lifetime purchase below.</string>
+    <string name="notifications_premium_wizard_hint_android">Real-time notifications are a Premium feature. Go back one step to unlock Premium, or do it later in Settings.</string>
+    <string name="premium_step_message_android">Optional: Premium removes all ads and unlocks real-time notifications. Subscribe or buy the lifetime unlock now, or later in Settings.</string>
+</resources>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-only strings (not present in the iOS Localizable.strings). -->
+<resources>
+    <string name="app_name">Helpdesk for Zammad</string>
+    <string name="channel_tickets">Tickets</string>
+    <string name="channel_chat">Chat</string>
+    <string name="push_not_configured">Les notifications push ne sont pas disponibles dans cette version.</string>
+    <string name="push_registration_failed">Impossible d\'enregistrer cet appareil pour les notifications. Vérifiez la connexion et réessayez.</string>
+    <string name="notification_permission_denied">Les notifications sont désactivées pour cette app. Autorisez-les dans les réglages Android.</string>
+    <string name="no_app_for_file">Aucune app sur cet appareil ne peut ouvrir ce fichier.</string>
+    <string name="loading_ticket">Chargement du ticket…</string>
+    <string name="manage_subscription">Gérer l\'abonnement</string>
+    <string name="current_plan">Abonnement actuel</string>
+    <string name="open_in_browser">Ouvrir dans le navigateur</string>
+    <string name="wear_title">Wear OS</string>
+    <string name="wear_sync_hint">Votre serveur et votre jeton sont partagés avec l\'app Helpdesk sur votre montre associée.</string>
+    <string name="report">Signaler</string>
+    <string name="support">Assistance</string>
+    <string name="wear_sync_now">Synchroniser maintenant</string>
+    <string name="organization">Organisation</string>
+    <string name="customer_email_missing">Adresse e-mail du client introuvable.</string>
+    <string name="attachment_too_large">%s : trop volumineux (25 Mo max.).</string>
+    <string name="attachment_unreadable">%s : lecture impossible.</string>
+    <string name="article_type_note">Note</string>
+    <string name="article_type_email">E-mail</string>
+    <string name="enable_app_lock">Activer le verrouillage (empreinte, visage ou code)</string>
+    <string name="paste_token_explainer_android">Avez-vous créé un jeton dans le navigateur, dans votre profil Zammad ? Collez-le ci-dessous.</string>
+    <string name="subscription_terms_play">Les abonnements se renouvellent automatiquement sauf résiliation au moins 24 heures avant la fin de la période en cours. Le paiement est débité de votre compte Google Play ; gérez ou résiliez dans Abonnements sur Google Play.</string>
+    <string name="notifications_premium_required_android">Les notifications en temps réel sont une fonction Premium. Débloquez-les avec un abonnement ou l\'achat unique ci-dessous.</string>
+    <string name="notifications_premium_wizard_hint_android">Les notifications en temps réel sont une fonction Premium. Revenez à l\'étape précédente pour débloquer Premium, ou faites-le plus tard dans les Réglages.</string>
+    <string name="premium_step_message_android">Facultatif : Premium supprime toute publicité et active les notifications en temps réel. Choisissez un abonnement ou l\'achat unique maintenant, ou plus tard dans les Réglages.</string>
+</resources>

@@ -4,6 +4,7 @@ const apn = require('@parse/node-apn');
 const fs = require('fs');
 const path = require('path');
 const mariadb = require('mariadb');
+const { createFcmSender, isFcmToken, FCM_PREFIX } = require('./fcm');
 
 // --- Configuration ---
 const PORT = process.env.PORT || 3000;
@@ -57,6 +58,33 @@ async function sendApns(notification, deviceToken) {
     return result;
 }
 
+// --- FCM Setup (Android) ---
+// Optional: without an "fcm" block in config.json the proxy runs exactly as
+// before and Android registrations simply receive no pushes. Android tokens
+// are stored in registrations.deviceToken with an "fcm:" prefix (see fcm.js),
+// so no schema change is involved and chat.js needs no knowledge of platforms.
+let fcmSender = null;
+try {
+    fcmSender = createFcmSender(config.fcm);
+    console.log(fcmSender
+        ? `FCM sender ready for Firebase project ${fcmSender.projectId}.`
+        : "No 'fcm' block in config.json — Android pushes are disabled.");
+} catch (error) {
+    // A broken FCM config must not take iOS push and chat down with it.
+    console.error('FCM initialization failed — Android pushes are disabled:', error.message);
+}
+
+// Send a data message to an Android device. Best effort, like the APNs path.
+async function sendFcm(deviceToken, data) {
+    if (!fcmSender) {
+        console.log('[FCM] Skipped: FCM is not configured.');
+        return { ok: false, status: 0, unregistered: false };
+    }
+    const result = await fcmSender.send(deviceToken, data);
+    if (!result.ok) console.error(`[FCM] Delivery failed (HTTP ${result.status}): ${result.error || ''}`);
+    return result;
+}
+
 // --- Database Setup ---
 const pool = mariadb.createPool(dbConfig);
 
@@ -93,6 +121,16 @@ async function lookupDeviceToken(proxyUserID) {
 // `body` is only a fallback for clients missing the key. payload holds custom
 // keys (chat_from_user_id and, when relevant, ticketID for DeepLinkManager).
 async function sendChatPush(deviceToken, message) {
+    if (isFcmToken(deviceToken)) {
+        // Android: the app localizes body_loc_key itself and reads the same
+        // routing keys as iOS from the data payload.
+        return sendFcm(deviceToken, {
+            ...(message.payload || {}),
+            title: message.title,
+            body: message.body,
+            body_loc_key: message.bodyLocKey,
+        });
+    }
     const notification = new apn.Notification();
     notification.expiry = Math.floor(Date.now() / 1000) + 3600;
     notification.badge = 1;
@@ -148,10 +186,15 @@ app.use('/api/chat', chatRouter);
 
 // --- API Endpoints ---
 app.post('/api/register', async (req, res) => {
-    const { deviceToken, proxyUserID, zammadURL, zammadToken } = req.body;
+    const { proxyUserID, zammadURL, zammadToken, platform } = req.body;
+    let { deviceToken } = req.body;
     if (!deviceToken || !proxyUserID) {
         return res.status(400).json({ error: 'deviceToken and proxyUserID are required.' });
     }
+    // Android clients send platform "android" and an FCM registration token;
+    // iOS clients send no platform and an APNs token. The Android app does not
+    // send zammadToken (nothing here uses it), hence the null defaults below.
+    if (platform === 'android' && !isFcmToken(deviceToken)) deviceToken = FCM_PREFIX + deviceToken;
     const sql = `
         INSERT INTO registrations (proxyUserID, deviceToken, zammadURL, zammadToken)
         VALUES (?, ?, ?, ?)
@@ -160,7 +203,9 @@ app.post('/api/register', async (req, res) => {
     let conn;
     try {
         conn = await pool.getConnection();
-        await conn.query(sql, [proxyUserID, deviceToken, zammadURL, zammadToken, deviceToken, zammadURL, zammadToken]);
+        const url = zammadURL || null;
+        const token = zammadToken || null;
+        await conn.query(sql, [proxyUserID, deviceToken, url, token, deviceToken, url, token]);
         res.status(200).json({ message: 'Device registered successfully.' });
     } catch (err) {
         res.status(500).json({ error: 'Database error during registration.' });
@@ -249,6 +294,15 @@ app.post('/api/webhook/:proxyUserID', async (req, res) => {
         if (body.length > 150) body = body.substring(0, 150) + '...';
     } else if (ticket && ticket.state) {
         body = `Status gewijzigd naar: ${ticket.state}`;
+    }
+
+    // Android device: same content as a data message through FCM.
+    if (isFcmToken(registration.deviceToken)) {
+        console.log(`[FCM] Webhook push, ticket id ${ticketId}`);
+        await sendFcm(registration.deviceToken, {
+            title, body, ticketID: ticketId, ticket_number: ticketNumber,
+        });
+        return res.status(200).json({ message: 'Webhook processed.' });
     }
 
     const notification = new apn.Notification();

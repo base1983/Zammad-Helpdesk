@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Helpdesk</string>
+    <string name="unknown">Unbekannt</string>
+    <string name="unassigned">Nicht zugewiesen</string>
+    <string name="loading_data">Daten werden geladen…</string>
+    <string name="try_again">Erneut versuchen</string>
+    <string name="tickets">Tickets</string>
+    <string name="my_assigned_tickets">Meine zugewiesenen Tickets</string>
+    <string name="unassigned_tickets">Nicht zugewiesene Tickets</string>
+    <string name="all_open_tickets">Alle offenen Tickets</string>
+    <string name="filter">Filter</string>
+    <string name="filter_by_status">Nach Status filtern</string>
+    <string name="no_tickets_in_view">Keine Tickets hier</string>
+    <string name="status_new">Neu</string>
+    <string name="status_open">Offen</string>
+    <string name="status_pending_reminder">Wartet auf Erinnerung</string>
+    <string name="status_closed">Geschlossen</string>
+    <string name="status_merged">Zusammengeführt</string>
+    <string name="status_pending_close">Wartet auf Schließung</string>
+    <string name="loading_ticket_details">Ticketdetails werden geladen…</string>
+    <string name="ticket_not_found">Ticket nicht gefunden</string>
+    <string name="details_section_header">Details</string>
+    <string name="customer">Kunde</string>
+    <string name="status">Status</string>
+    <string name="priority">Priorität</string>
+    <string name="owner">Besitzer</string>
+    <string name="created_at">Erstellt am</string>
+    <string name="sign_in_on_phone">Öffne Zammad Helpdesk auf deinem Smartphone, um dich anzumelden.</string>
+    <string name="error_auth">Authentifizierung fehlgeschlagen. Melde dich auf dem Smartphone erneut an.</string>
+    <string name="error_network">Der Server ist nicht erreichbar.</string>
+    <string name="error_invalid_url">Die konfigurierte Server-URL ist ungültig.</string>
+    <string name="error_decoding">Die Daten des Servers konnten nicht verarbeitet werden.</string>
+    <string name="error_server">Serverfehler: Status %1$d.</string>
+</resources>

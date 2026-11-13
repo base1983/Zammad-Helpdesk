@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Helpdesk</string>
+    <string name="unknown">Onbekend</string>
+    <string name="unassigned">Niet toegewezen</string>
+    <string name="loading_data">Gegevens laden…</string>
+    <string name="try_again">Opnieuw proberen</string>
+    <string name="tickets">Tickets</string>
+    <string name="my_assigned_tickets">Mijn toegewezen tickets</string>
+    <string name="unassigned_tickets">Niet-toegewezen tickets</string>
+    <string name="all_open_tickets">Alle open tickets</string>
+    <string name="filter">Filter</string>
+    <string name="filter_by_status">Filteren op status</string>
+    <string name="no_tickets_in_view">Geen tickets hier</string>
+    <string name="status_new">Nieuw</string>
+    <string name="status_open">Open</string>
+    <string name="status_pending_reminder">Wacht op herinnering</string>
+    <string name="status_closed">Gesloten</string>
+    <string name="status_merged">Samengevoegd</string>
+    <string name="status_pending_close">Wacht op sluiting</string>
+    <string name="loading_ticket_details">Ticketdetails laden…</string>
+    <string name="ticket_not_found">Ticket niet gevonden</string>
+    <string name="details_section_header">Details</string>
+    <string name="customer">Klant</string>
+    <string name="status">Status</string>
+    <string name="priority">Prioriteit</string>
+    <string name="owner">Eigenaar</string>
+    <string name="created_at">Aangemaakt op</string>
+    <string name="sign_in_on_phone">Open Zammad Helpdesk op je telefoon om in te loggen.</string>
+    <string name="error_auth">Authenticatie mislukt. Log opnieuw in op je telefoon.</string>
+    <string name="error_network">De server is niet bereikbaar.</string>
+    <string name="error_invalid_url">De ingestelde server-URL is ongeldig.</string>
+    <string name="error_decoding">De gegevens van de server konden niet worden verwerkt.</string>
+    <string name="error_server">Serverfout: status %1$d.</string>
+</resources>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Helpdesk</string>
+    <string name="unknown">Unknown</string>
+    <string name="unassigned">Unassigned</string>
+    <string name="loading_data">Loading data…</string>
+    <string name="try_again">Try Again</string>
+    <string name="tickets">Tickets</string>
+    <string name="my_assigned_tickets">My Assigned Tickets</string>
+    <string name="unassigned_tickets">Unassigned Tickets</string>
+    <string name="all_open_tickets">All Open Tickets</string>
+    <string name="filter">Filter</string>
+    <string name="filter_by_status">Filter by Status</string>
+    <string name="no_tickets_in_view">No Tickets Here</string>
+    <string name="status_new">New</string>
+    <string name="status_open">Open</string>
+    <string name="status_pending_reminder">Pending Reminder</string>
+    <string name="status_closed">Closed</string>
+    <string name="status_merged">Merged</string>
+    <string name="status_pending_close">Pending Close</string>
+    <string name="loading_ticket_details">Loading Ticket Details…</string>
+    <string name="ticket_not_found">Ticket not found</string>
+    <string name="details_section_header">Details</string>
+    <string name="customer">Customer</string>
+    <string name="status">Status</string>
+    <string name="priority">Priority</string>
+    <string name="owner">Owner</string>
+    <string name="created_at">Created At</string>
+    <string name="sign_in_on_phone">Open Zammad Helpdesk on your phone to sign in.</string>
+    <string name="error_auth">Authentication failed. Sign in again on your phone.</string>
+    <string name="error_network">Could not reach the server.</string>
+    <string name="error_invalid_url">The configured server URL is invalid.</string>
+    <string name="error_decoding">Could not process data from the server.</string>
+    <string name="error_server">Server error: status %1$d.</string>
+</resources>

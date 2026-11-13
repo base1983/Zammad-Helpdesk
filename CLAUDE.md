@@ -11,6 +11,7 @@ servers it depends on**, all in one repo:
 | --- | --- | --- |
 | `Zammad Helpdesk/` | SwiftUI iOS app (`com.World-ICT.Zammad-Helpdesk`) | the phone |
 | `Zammad Helpdesk Watch App/` | watchOS companion; compiles `Managers/Managers.swift` from the iOS target | the watch |
+| `android/` | Android + Wear OS port (Kotlin, Jetpack Compose), application id `com.baseonline.zammadmobile`; see `android/README.md` | Android phones, tablets, watches |
 | `proxy/` | Node/Express relay for push notifications and the colleague chat | `zammadproxy.world-ict.nl` on web05 (Plesk, MariaDB) |
 | `demo-server/` | Scripts that stand up and seed the App Review demo Zammad | `zammaddemo.world-ict.nl` on the same host |
 | `docs/` | Support page + privacy policy, served by GitHub Pages from `main` | `https://base1983.github.io/Zammad-Helpdesk/` |
@@ -108,9 +109,25 @@ active subscription and **from nothing else** — an automatic grant for
 non-production builds was removed because App Review runs in the sandbox and
 would never see the paywall. Product ids: `com.baseonline.zammadmobile.premium.{lifetime,month,yearly}`.
 
+## Android
+
+`android/` mirrors the iOS structure (`android/README.md` has the file-by-file
+map, build commands and the Play release checklist). Rules that span both apps:
+
+- `android/.../chat/ChatCryptoCore.kt` must stay bit-compatible with
+  `ChatCrypto` in `ChatService.swift`; `ChatCryptoInteropTest` checks it against
+  CryptoKit vectors (`./gradlew :app:testDebugUnitTest`).
+- `strings.xml` is generated from the iOS `Localizable.strings` by
+  `android/tools/sync_ios_resources.py`; rerun it after changing iOS strings.
+- Android push goes through FCM: the app registers with `platform: "android"`,
+  the relay stores the token as `fcm:<token>` in `registrations.deviceToken`
+  and sends via `proxy/fcm.js`. `chat.js` knows nothing about platforms.
+- `google-services.json`, `keystore.properties`, keystores and
+  `local.properties` are git-ignored and must stay out of this public repo.
+
 ## Servers
 
-- **Proxy deploy** is a file copy: `scp proxy/{chat.js,server.js,retention.js}`
+- **Proxy deploy** is a file copy: `scp proxy/{chat.js,server.js,fcm.js,retention.js}`
   to `/var/www/vhosts/world-ict.nl/zammadproxy.world-ict.nl/` (ssh alias
   `world-ict-proxy`), back the old files up first, then `touch tmp/restart.txt`
   (Passenger). `initSchema()` in `chat.js` migrates the MariaDB schema at

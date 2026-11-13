@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: allow plain HTTP to the emulator's host loopback
+     (10.0.2.2) so the app can be pointed at tools/mock_zammad.py. Release
+     builds keep cleartext traffic disabled everywhere. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application
+        android:networkSecurityConfig="@xml/debug_network_security_config"
+        android:usesCleartextTraffic="false"
+        tools:replace="android:usesCleartextTraffic" />
+</manifest>
