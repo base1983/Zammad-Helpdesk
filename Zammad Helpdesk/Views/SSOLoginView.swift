@@ -198,7 +198,7 @@ struct SSOLoginView: View {
                     .font(.callout)
             }
             .padding(28)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .glassOrMaterial(cornerRadius: 14)
         }
     }
 }

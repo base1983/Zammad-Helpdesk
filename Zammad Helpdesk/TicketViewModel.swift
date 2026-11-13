@@ -18,6 +18,9 @@ class TicketViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var activeFilter: FilterType = .myTickets
+    /// Open tickets whose SLA deadline has passed; refreshed with every load
+    /// and shown as a badge on the filter button (Premium).
+    @Published var escalatedCount = 0
 
     private let apiService = ZammadAPIService.shared
     private var loadingTask: Task<Void, Never>?
@@ -28,13 +31,16 @@ class TicketViewModel: ObservableObject {
 
     enum FilterType: Hashable {
         case myTickets, unassigned, allOpen
+        /// Open tickets whose SLA deadline has passed, nearest first.
+        case escalated
         case byStatus(id: Int, name: String)
-        
+
         var displayName: String {
             switch self {
             case .myTickets: "my_assigned_tickets".localized()
             case .unassigned: "unassigned_tickets".localized()
             case .allOpen: "all_open_tickets".localized()
+            case .escalated: "filter_escalated".localized()
             case .byStatus(_, let name): name
             }
         }
@@ -94,6 +100,7 @@ class TicketViewModel: ObservableObject {
         isLoading = false
         errorMessage = nil
         activeFilter = .myTickets
+        escalatedCount = 0
     }
 
     private func loadData(filter: FilterType, isFullRefresh: Bool) async {
@@ -109,10 +116,14 @@ class TicketViewModel: ObservableObject {
                     }
                     try Task.checkCancellation()
                     
-                    let tickets = try await fetchTickets(for: filter)
+                    async let ticketsTask = fetchTickets(for: filter)
+                    async let escalatedTask = fetchEscalatedCount()
+                    let tickets = try await ticketsTask
+                    let escalated = await escalatedTask
                     try Task.checkCancellation()
 
                     self.currentTickets = tickets
+                    self.escalatedCount = filter == .escalated ? tickets.count : escalated
                     self.errorMessage = nil
                     
                     self.updateApplicationBadge()
@@ -166,13 +177,29 @@ class TicketViewModel: ObservableObject {
         isTimeAccountingEnabled = !timeAccountingTypes.isEmpty
     }
 
-    private func fetchTickets(for filter: FilterType) async throws -> [Ticket] {
+    /// Search clause selecting every non-closed state, or nil before the
+    /// states have loaded.
+    private var openStatesQuery: String? {
         let openStateIDs = ticketStates.filter { !["closed", "gesloten"].contains($0.name.lowercased()) }.map { String($0.id) }
-        
-        guard !openStateIDs.isEmpty else { return [] }
-        
-        let openStatesQuery = "state_id:(\(openStateIDs.joined(separator: " OR ")))"
-        
+        guard !openStateIDs.isEmpty else { return nil }
+        return "state_id:(\(openStateIDs.joined(separator: " OR ")))"
+    }
+
+    /// Clause for open tickets whose nearest SLA deadline has passed. Zammad's
+    /// search accepts relative range bounds; verified against a live instance.
+    private var escalatedQuery: String? {
+        openStatesQuery.map { "escalation_at:[* TO now] AND \($0)" }
+    }
+
+    /// Count only; a failure (old Zammad, no permission) simply shows no badge.
+    private func fetchEscalatedCount() async -> Int {
+        guard let escalatedQuery else { return 0 }
+        return (try? await apiService.countTickets(query: escalatedQuery)) ?? 0
+    }
+
+    private func fetchTickets(for filter: FilterType) async throws -> [Ticket] {
+        guard let openStatesQuery, let escalatedQuery else { return [] }
+
         switch filter {
         case .myTickets:
             guard let userId = self.currentUser?.id else { throw APIError.userNotFound }
@@ -183,7 +210,12 @@ class TicketViewModel: ObservableObject {
         
         case .allOpen:
             return try await apiService.searchTickets(query: openStatesQuery)
-        
+
+        case .escalated:
+            // Longest overdue first.
+            let tickets = try await apiService.searchTickets(query: escalatedQuery)
+            return tickets.sorted { ($0.escalation_at ?? .distantFuture) < ($1.escalation_at ?? .distantFuture) }
+
         case .byStatus(let id, _):
             return try await apiService.fetchTickets(byStatusId: id)
         }

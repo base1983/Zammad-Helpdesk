@@ -9,6 +9,9 @@ struct TicketRowView: View {
     let priorityColor: Color
     @ObservedObject var viewModel: TicketViewModel
     @ObservedObject private var drafts = DraftManager.shared
+    private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
+    /// SLA information is a Premium feature.
+    @AppStorage("are_ads_removed", store: Self.groupDefaults) private var isPremium: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -55,14 +58,28 @@ struct TicketRowView: View {
                     .background(priorityColor) // Use solid color background
                     .foregroundColor(.black) // Use white text for high contrast
                     .clipShape(Capsule())
-                
+
+                // SLA: time to (or past) the nearest deadline. Only tickets
+                // that fall under an SLA carry one, and only Premium sees it.
+                if isPremium, let sla = ticket.slaStatus() {
+                    Label(sla.shortText, systemImage: sla.symbolName)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 8)
+                        .background(sla.color)
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
+                        .accessibilityLabel(sla.text)
+                }
+
                 Spacer()
             }
         }
         .padding()
-        .background(.ultraThinMaterial)
-        .cornerRadius(12)
-        .background(Color.clear)
+        // Material, not Liquid Glass: every visible row would otherwise be
+        // its own glass pass, and the HIG reserves glass for the control layer.
+        .background(.regularMaterial, in: .rect(cornerRadius: 12))
     }
 }
 

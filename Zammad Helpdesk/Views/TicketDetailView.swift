@@ -4,12 +4,24 @@ import QuickLook
 struct TicketDetailView: View {
     let ticketID: Int
     @ObservedObject var viewModel: TicketViewModel
+    /// False when shown side by side with the list (split view, regular
+    /// width): there is nothing to go back to.
+    var showsBackButton: Bool = true
+    /// What the back button does. The split view clears its selection; a
+    /// pushed or sheet-presented detail falls back to `dismiss`.
+    var onBack: (() -> Void)? = nil
 
     @State private var ticket: Ticket?
     @State private var articles: [TicketArticle] = []
     @State private var timeAccountings: [TimeAccounting] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    /// Whether this visit has been counted towards the review request.
+    @State private var hasCountedAsOpened = false
+    @State private var isShowingPremiumPrompt = false
+    private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
+    /// SLA information is a Premium feature.
+    @AppStorage("are_ads_removed", store: Self.groupDefaults) private var isPremium: Bool = false
 
     @State private var isShowingEditSheet = false
     @State private var isShowingReplySheet = false
@@ -33,6 +45,7 @@ struct TicketDetailView: View {
     @State private var isEditingOwner = false
     
     @Environment(\.dismiss) var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Group {
@@ -50,38 +63,41 @@ struct TicketDetailView: View {
         .task { await loadDetails() }
         .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left.circle.fill")
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.primary, .thinMaterial)
-                        .font(.title2)
+            if showsBackButton {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    // Plain glyph: on iOS 26 the toolbar draws Liquid Glass
+                    // around its items itself, so a hand-made material circle
+                    // would be glass on glass.
+                    Button(action: { if let onBack { onBack() } else { dismiss() } }) {
+                        Image(systemName: "chevron.left")
+                            .fontWeight(.semibold)
+                    }
                 }
             }
             ToolbarItem(placement: .principal) {
                 Text(ticket?.title ?? "").lineLimit(1).truncationMode(.tail)
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                HStack {
-                    if viewModel.isTimeAccountingEnabled {
-                        Button(action: { isShowingTimeSheet = true }) { Image(systemName: "clock") }
-                    }
-                    Button(action: { isShowingHandoffSheet = true }) { Image(systemName: "person.2") }
-                    Button(action: { isShowingEditSheet = true }) { Image(systemName: "square.and.pencil") }
-                    Button(action: { isShowingReplySheet = true }) { Image(systemName: "arrowshape.turn.up.left") }
-                    Menu {
-                        Button(role: .destructive) {
-                            isConfirmingSpam = true
-                        } label: {
-                            Label("close_as_spam".localized(), systemImage: "xmark.bin")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                    }
-                    .disabled(isClosingAsSpam)
+            // One item per action, no bordered style: iOS 26 lays the group
+            // out in a single glass pill itself. Bordered buttons stuffed into
+            // one HStack item drew their own backgrounds inside that pill and
+            // sat off the bar's baseline in the split view's detail column.
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if viewModel.isTimeAccountingEnabled {
+                    Button(action: { isShowingTimeSheet = true }) { Image(systemName: "clock") }
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                Button(action: { isShowingHandoffSheet = true }) { Image(systemName: "person.2") }
+                Button(action: { isShowingEditSheet = true }) { Image(systemName: "square.and.pencil") }
+                Button(action: { isShowingReplySheet = true }) { Image(systemName: "arrowshape.turn.up.left") }
+                Menu {
+                    Button(role: .destructive) {
+                        isConfirmingSpam = true
+                    } label: {
+                        Label("close_as_spam".localized(), systemImage: "xmark.bin")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .disabled(isClosingAsSpam)
             }
         }
         .confirmationDialog("close_as_spam_confirm_title".localized(), isPresented: $isConfirmingSpam, titleVisibility: .visible) {
@@ -104,6 +120,9 @@ struct TicketDetailView: View {
             if let ticketBinding = Binding($ticket) {
                 TicketEditView(viewModel: viewModel, ticket: ticketBinding)
             }
+        }
+        .sheet(isPresented: $isShowingPremiumPrompt) {
+            PremiumPromptView()
         }
         .sheet(isPresented: $isShowingReplySheet) {
             if let ticket = ticket {
@@ -247,8 +266,41 @@ struct TicketDetailView: View {
                             .padding(.vertical, 10)
                     }
                 }
-                .listRowBackground(VisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial)))
-                
+                .listRowBackground(materialRowBackground)
+
+                if ticket.hasSLA {
+                    Section(header: Text("sla".localized()).font(.headline)) {
+                        if isPremium {
+                            VStack(alignment: .leading, spacing: 0) {
+                                ForEach(Array(ticket.slaDeadlines.enumerated()), id: \.element.id) { index, deadline in
+                                    if index > 0 { Divider() }
+                                    slaRow(for: deadline)
+                                        .padding(.vertical, 10)
+                                }
+                            }
+                        } else {
+                            // The ticket has an SLA, but the deadlines are a
+                            // Premium feature: say so, and offer the upgrade.
+                            Button(action: { isShowingPremiumPrompt = true }) {
+                                HStack(alignment: .top, spacing: 10) {
+                                    Image(systemName: "crown.fill").foregroundStyle(.yellow)
+                                    Text("sla_premium_required".localized())
+                                        .font(.callout)
+                                        .foregroundColor(.primary)
+                                        .multilineTextAlignment(.leading)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.vertical, 6)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .listRowBackground(materialRowBackground)
+                }
+
                 Section(header: Text("communication_history".localized()).font(.headline)) {
                     ForEach(articles.sorted(by: { $0.created_at > $1.created_at })) { article in
                         VStack(alignment: .leading, spacing: 8) {
@@ -265,11 +317,19 @@ struct TicketDetailView: View {
                             }
                         }
                         .padding(.vertical, 8)
-                        .listRowBackground(VisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial)))
+                        // HTML mail is rendered light-on-white regardless of
+                        // appearance (see RichArticleBodyView), so the header
+                        // on that card must follow suit.
+                        .environment(\.colorScheme, article.isHTMLBody ? .light : colorScheme)
+                        .listRowBackground(articleRowBackground(for: article))
+                        .listRowSeparator(.hidden)
                     }
                 }
             }
             .listStyle(.insetGrouped)
+            // Each article is its own glass card, so give them air instead of
+            // the hairline separators that a shared blurred section used.
+            .listRowSpacing(8)
             .scrollContentBackground(.hidden)
             .background(ClearBackgroundView())
             .onAppear {
@@ -349,11 +409,55 @@ struct TicketDetailView: View {
         return "\(total) \("hours".localized())"
     }
 
+    /// Card behind the ticket-properties block and plain-text articles: the
+    /// same regular material as the ticket list, so text sits on a steady,
+    /// readable backdrop whatever the wallpaper.
+    private var materialRowBackground: some View {
+        RoundedRectangle(cornerRadius: 12)
+            .fill(.regularMaterial)
+    }
+
+    /// Article cards: an opaque light card for HTML mail (which brings its
+    /// own colours and expects a white page), the material card otherwise.
+    @ViewBuilder
+    private func articleRowBackground(for article: TicketArticle) -> some View {
+        if article.isHTMLBody {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white)
+        } else {
+            materialRowBackground
+        }
+    }
+
     private func detailRow(label: String, value: String) -> some View {
         HStack {
             Text(label).fontWeight(.semibold)
             Spacer()
             Text(value).foregroundColor(.secondary)
+        }
+    }
+
+    /// One SLA target: met (green check), overdue (red), or the deadline
+    /// with the time left, coloured by how close it is.
+    private func slaRow(for deadline: SLADeadline) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(deadline.kind.titleKey.localized()).fontWeight(.semibold)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                if let completedAt = deadline.completedAt {
+                    Label("sla_met".localized(), systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text(completedAt.formatted(date: .numeric, time: .shortened))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else if let status = deadline.status(), let due = deadline.deadline {
+                    Label(status.text, systemImage: status.symbolName)
+                        .foregroundStyle(status.color)
+                    Text(due.formatted(date: .numeric, time: .shortened))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
         }
     }
     
@@ -431,6 +535,15 @@ struct TicketDetailView: View {
             self.ticket = ticketResult
             self.articles = articlesResult
             self.timeAccountings = timeAccountingsResult
+
+            // Count the ticket as opened once it has actually loaded, and
+            // only once per visit: reloads after a reply or handoff do not
+            // count again. The list container asks for the review when the
+            // user leaves the ticket, since this view is gone by then.
+            if !hasCountedAsOpened {
+                hasCountedAsOpened = true
+                ReviewRequestManager.shared.recordTicketOpened()
+            }
         } catch {
             self.errorMessage = error.localizedDescription
         }

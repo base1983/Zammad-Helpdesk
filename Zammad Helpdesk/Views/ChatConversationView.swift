@@ -317,25 +317,26 @@ struct ChatConversationView: View {
     }
 
     private var mentionBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(mentionSuggestions) { user in
-                    Button {
-                        insertMention(user)
-                    } label: {
-                        Text("@\(user.name)")
-                            .font(.callout.bold())
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(.thinMaterial, in: Capsule())
+        GlassGroup(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(mentionSuggestions) { user in
+                        Button {
+                            insertMention(user)
+                        } label: {
+                            Text("@\(user.name)")
+                                .font(.callout.bold())
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .glassOrMaterialCapsule(interactive: true)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(.horizontal)
+                .padding(.vertical, 6)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 6)
         }
-        .background(.ultraThinMaterial)
     }
 
     private func insertMention(_ user: ChatUser) {
@@ -344,77 +345,94 @@ struct ChatConversationView: View {
     }
 
     private var pendingItemsBar: some View {
-        HStack(spacing: 8) {
-            if let ticket = pendingTicket {
-                HStack(spacing: 4) {
-                    Image(systemName: "ticket")
-                    Text(String(format: "chat_ticket_reference".localized(), ticket.number))
-                        .lineLimit(1)
-                    Button(action: { pendingTicket = nil }) {
-                        Image(systemName: "xmark.circle.fill")
+        GlassGroup(spacing: 8) {
+            HStack(spacing: 8) {
+                if let ticket = pendingTicket {
+                    HStack(spacing: 4) {
+                        Image(systemName: "ticket")
+                        Text(String(format: "chat_ticket_reference".localized(), ticket.number))
+                            .lineLimit(1)
+                        Button(action: { pendingTicket = nil }) {
+                            Image(systemName: "xmark.circle.fill")
+                        }
                     }
+                    .font(.caption)
+                    .padding(8)
+                    .glassOrMaterialCapsule()
                 }
-                .font(.caption)
-                .padding(8)
-                .background(.thinMaterial, in: Capsule())
-            }
-            if let attachment = pendingAttachment {
-                HStack(spacing: 4) {
-                    Image(systemName: attachment.isImage ? "photo" : "doc")
-                    Text(attachment.filename)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Button(action: { pendingAttachment = nil }) {
-                        Image(systemName: "xmark.circle.fill")
+                if let attachment = pendingAttachment {
+                    HStack(spacing: 4) {
+                        Image(systemName: attachment.isImage ? "photo" : "doc")
+                        Text(attachment.filename)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Button(action: { pendingAttachment = nil }) {
+                            Image(systemName: "xmark.circle.fill")
+                        }
                     }
+                    .font(.caption)
+                    .padding(8)
+                    .glassOrMaterialCapsule()
                 }
-                .font(.caption)
-                .padding(8)
-                .background(.thinMaterial, in: Capsule())
+                Spacer()
             }
-            Spacer()
         }
         .padding(.horizontal)
         .padding(.vertical, 4)
     }
 
+    /// Diameter of the round glass buttons flanking the text field.
+    private let composerButtonSize: CGFloat = 40
+
+    /// Composer in the iOS 26 idiom: no bar behind it, just a glass text
+    /// field and round glass buttons sitting on the chat background. The
+    /// container lets the shapes blend when they come close.
     private var inputBar: some View {
-        HStack(spacing: 8) {
-            Menu {
-                Button(action: { isShowingTicketSearch = true }) {
-                    Label("chat_search_ticket".localized(), systemImage: "ticket")
+        GlassGroup(spacing: 12) {
+            HStack(spacing: 8) {
+                Menu {
+                    Button(action: { isShowingTicketSearch = true }) {
+                        Label("chat_search_ticket".localized(), systemImage: "ticket")
+                    }
+                    Button(action: { isShowingFileImporter = true }) {
+                        Label("chat_attach_file".localized(), systemImage: "doc")
+                    }
+                } label: {
+                    Image(systemName: "paperclip")
+                        .font(.title3)
+                        .frame(width: composerButtonSize, height: composerButtonSize)
                 }
-                Button(action: { isShowingFileImporter = true }) {
-                    Label("chat_attach_file".localized(), systemImage: "doc")
+                .glassOrMaterialCircle(interactive: true)
+
+                PhotosPicker(selection: $photoPickerItem, matching: .images) {
+                    Image(systemName: "photo")
+                        .font(.title3)
+                        .frame(width: composerButtonSize, height: composerButtonSize)
                 }
-            } label: {
-                Image(systemName: "paperclip")
-                    .font(.title3)
-            }
+                .glassOrMaterialCircle(interactive: true)
 
-            PhotosPicker(selection: $photoPickerItem, matching: .images) {
-                Image(systemName: "photo")
-                    .font(.title3)
-            }
+                TextField("chat_message_placeholder".localized(), text: $draft, axis: .vertical)
+                    .lineLimit(1...4)
+                    .padding(10)
+                    .glassOrMaterial(cornerRadius: 18)
 
-            TextField("chat_message_placeholder".localized(), text: $draft, axis: .vertical)
-                .lineLimit(1...4)
-                .padding(10)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
-
-            Button(action: send) {
-                if isSending {
-                    ProgressView()
-                } else {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title)
+                Button(action: send) {
+                    Group {
+                        if isSending {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "arrow.up")
+                                .font(.headline)
+                        }
+                    }
+                    .frame(width: composerButtonSize - 16, height: composerButtonSize - 16)
                 }
+                .roundProminentGlassButtonStyle()
+                .disabled(isSending || (draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && pendingAttachment == nil))
             }
-            .disabled(isSending || (draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && pendingAttachment == nil))
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
     }
 
     // MARK: - Attachments (outgoing)

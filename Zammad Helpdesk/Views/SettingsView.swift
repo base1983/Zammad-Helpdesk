@@ -551,7 +551,9 @@ struct NotificationSettingsSection: View {
 }
 
 // MARK: - Component: In-App Purchase View
-private struct InAppPurchaseView: View {
+/// The Premium purchase section. Shared by Settings and the Premium
+/// suggestion sheet so the app has exactly one paywall.
+struct InAppPurchaseView: View {
     @StateObject private var storeManager = StoreManager()
     private static let groupDefaults = UserDefaults(suiteName: "group.com.World-ICT.Zammad-Helpdesk")
     @AppStorage("are_ads_removed", store: Self.groupDefaults) private var areAdsRemoved: Bool = false

@@ -4,6 +4,14 @@ import SwiftUI
 /// engineers on the same Zammad instance, delivered via the notification proxy.
 struct ChatListView: View {
     @ObservedObject var viewModel: TicketViewModel
+    /// Set by the ticket screen: closes the chat (pops it in compact width,
+    /// clears the detail column in regular width). An explicit control, so
+    /// the chat never depends on a system back button that the split view
+    /// may not provide.
+    var onClose: (() -> Void)? = nil
+    /// Glyph for the close control: a chevron when the chat was pushed, a
+    /// cross when it occupies the detail column.
+    var closeSymbol: String = "chevron.left"
     @StateObject private var chatService = ChatService.shared
 
     @State private var conversations: [ChatConversation] = []
@@ -23,6 +31,8 @@ struct ChatListView: View {
         Group {
             if isLoading && conversations.isEmpty {
                 ProgressView()
+                    .padding(30)
+                    .background(.regularMaterial, in: .rect(cornerRadius: 12))
             } else if let errorMessage, conversations.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "bubble.left.and.exclamationmark.bubble.right")
@@ -36,6 +46,8 @@ struct ChatListView: View {
                         .buttonStyle(.bordered)
                 }
                 .padding(30)
+                .background(.regularMaterial, in: .rect(cornerRadius: 12))
+                .padding()
             } else if conversations.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "bubble.left.and.bubble.right")
@@ -47,13 +59,25 @@ struct ChatListView: View {
                         .multilineTextAlignment(.center)
                 }
                 .padding(30)
+                .background(.regularMaterial, in: .rect(cornerRadius: 12))
+                .padding()
             } else {
                 conversationList
             }
         }
         .navigationTitle("chat".localized())
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(onClose != nil)
         .toolbar {
+            if let onClose {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: onClose) {
+                        Image(systemName: closeSymbol)
+                            .fontWeight(.semibold)
+                    }
+                    .accessibilityLabel("close".localized())
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: {
                     if engineers.isEmpty {
@@ -127,9 +151,15 @@ struct ChatListView: View {
                         }
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(12)
+                // Same material card as the ticket list: the list sits
+                // straight on the wallpaper, and bare text is unreadable there.
+                .background(.regularMaterial, in: .rect(cornerRadius: 12))
             }
+            .buttonStyle(.plain)
             .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
             .swipeActions {
                 Button(role: .destructive) {
                     conversationToDelete = conversation

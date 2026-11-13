@@ -34,7 +34,7 @@ struct LockedView: View {
             .tint(.blue)
         }
         .padding(30)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .glassOrMaterial(cornerRadius: 16)
         .padding()
     }
 }

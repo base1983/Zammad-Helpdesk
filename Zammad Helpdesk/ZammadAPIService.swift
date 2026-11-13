@@ -215,6 +215,17 @@ class ZammadAPIService {
         return try await fetchData(for: request)
     }
     
+    /// Number of tickets matching a search, without transferring the tickets.
+    /// Zammad answers `{"total_count": n}` for `only_total_count=true`
+    /// (verified against a live instance).
+    func countTickets(query: String) async throws -> Int {
+        struct CountResponse: Decodable { let total_count: Int }
+        let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let request = try createRequest(for: "tickets/search?query=\(encodedQuery)&only_total_count=true")
+        let response: CountResponse = try await fetchData(for: request)
+        return response.total_count
+    }
+
     func fetchTickets(byStatusId id: Int) async throws -> [Ticket] {
         let endpoint = "tickets/search?query=state_id:\(id)&expand=true&per_page=200"
         let request = try createRequest(for: endpoint)

@@ -66,18 +66,125 @@ extension Date {
 
 #if os(iOS)
 // MARK: - UIKit Background Fixes
+// MARK: - Liquid Glass with iOS 18 fallbacks
+//
+// The deployment target is below iOS 26, so every Liquid Glass call goes
+// through these helpers: glass where the OS has it, the same shape in a
+// material where it does not.
+
+extension View {
+    /// Liquid Glass in a rounded rectangle, or a material of the same shape.
+    @ViewBuilder
+    func glassOrMaterial(cornerRadius: CGFloat) -> some View {
+        if #available(iOS 26, *) {
+            glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            background(.regularMaterial, in: .rect(cornerRadius: cornerRadius))
+        }
+    }
+
+    /// Liquid Glass capsule (optionally reacting to touch), or a material capsule.
+    @ViewBuilder
+    func glassOrMaterialCapsule(interactive: Bool = false) -> some View {
+        if #available(iOS 26, *) {
+            glassEffect(interactive ? .regular.interactive() : .regular)
+        } else {
+            background(.regularMaterial, in: .capsule)
+        }
+    }
+
+    /// Liquid Glass circle (optionally reacting to touch), or a material circle.
+    @ViewBuilder
+    func glassOrMaterialCircle(interactive: Bool = false) -> some View {
+        if #available(iOS 26, *) {
+            glassEffect(interactive ? .regular.interactive() : .regular, in: .circle)
+        } else {
+            background(.regularMaterial, in: .circle)
+        }
+    }
+
+    /// Round glass button, or a round bordered button before iOS 26.
+    @ViewBuilder
+    func roundGlassButtonStyle() -> some View {
+        if #available(iOS 26, *) {
+            buttonStyle(.glass).buttonBorderShape(.circle)
+        } else {
+            buttonStyle(.bordered).buttonBorderShape(.circle)
+        }
+    }
+
+    /// Round prominent glass button, or a round prominent bordered button.
+    @ViewBuilder
+    func roundProminentGlassButtonStyle() -> some View {
+        if #available(iOS 26, *) {
+            buttonStyle(.glassProminent).buttonBorderShape(.circle)
+        } else {
+            buttonStyle(.borderedProminent).buttonBorderShape(.circle)
+        }
+    }
+}
+
+/// `GlassEffectContainer` on iOS 26, so neighbouring glass shapes blend and
+/// morph; just the content before that.
+struct GlassGroup<Content: View>: View {
+    var spacing: CGFloat
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        if #available(iOS 26, *) {
+            GlassEffectContainer(spacing: spacing, content: content)
+        } else {
+            content()
+        }
+    }
+}
+
+/// Lets the app-wide wallpaper show through UIKit containers that SwiftUI
+/// puts between it and the content (navigation controllers, and since the
+/// ticket screen became a split view, the split view controller and its
+/// column wrappers). Place it as a `.background` of the content to clear.
 struct ClearBackgroundView: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
-        let view = UIView()
-        view.backgroundColor = .clear
-        Task { @MainActor in
-            view.parentViewController?.view.backgroundColor = .clear
-            view.superview?.superview?.backgroundColor = .clear
-        }
-        return view
+        AncestorClearingView()
     }
-    
+
     func updateUIView(_ uiView: UIView, context: Context) {}
+}
+
+/// Walks every superview up to the window and clears its background. Runs
+/// when attached to a window and again on layout, because UIKit containers
+/// (the split view in particular) re-apply their own colours on trait and
+/// size changes.
+private final class AncestorClearingView: UIView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        clearAncestors()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        clearAncestors()
+    }
+
+    private func clearAncestors() {
+        var view = superview
+        while let current = view, !(current is UIWindow) {
+            // Visual effect views ignore backgroundColor and log about it.
+            if !(current is UIVisualEffectView) {
+                current.backgroundColor = .clear
+            }
+            view = current.superview
+        }
+        parentViewController?.view.backgroundColor = .clear
+    }
 }
 
 extension UIView {
@@ -90,17 +197,6 @@ extension UIView {
             }
         }
         return nil
-    }
-}
-
-// MARK: - Visual Effects
-struct VisualEffectView: UIViewRepresentable {
-    var effect: UIVisualEffect?
-    func makeUIView(context: Context) -> UIVisualEffectView {
-        UIVisualEffectView(effect: effect)
-    }
-    func updateUIView(_ uiView: UIVisualEffectView, context: Context) {
-        uiView.effect = effect
     }
 }
 #endif
