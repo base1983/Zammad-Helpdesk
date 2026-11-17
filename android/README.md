@@ -152,7 +152,8 @@ shows "products unavailable".
    existing line already covers it). Configure the GDPR message in AdMob →
    Privacy & messaging for the Android app (UMP shows it).
 5. **Billing products** (table above), prices, and licence testers.
-6. **Store listing**: title, short/full description (reuse `../APP_STORE_LISTING.md`),
+6. **Store listing**: texts in four languages are in `PLAY_STORE_LISTING.md`, the icon,
+   feature graphic and screenshots in `play-store/`. Still to enter by hand: title, short/full description,
    phone and 7"/10" tablet screenshots, 512 px icon, 1024×500 feature graphic,
    category, contact e-mail, privacy policy URL
    (`https://base1983.github.io/Zammad-Helpdesk/`).
